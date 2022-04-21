@@ -1,21 +1,21 @@
 package Interface.Cards;
 
-import Interface.Constants.BannerType;
+import Interface.Constants.WeaponType;
 
 import javax.swing.*;
 import java.awt.*;
 
-public class BannerCard extends Card
+public class WeaponCard extends Card
 {
 
-    private BannerType bannerType;
+    private WeaponType weaponType;
     private int durability = 5;
     private JLabel durabilityLabel = new JLabel(durability+"");
 
-    public BannerCard(String cardName, int imageId) {
+    public WeaponCard(String cardName, int imageId) {
         super(cardName, imageId);
 
-        cardNameLabel.setText("Equipment");
+        cardNameLabel.setText("Weapon");
         GridLayout gridLayout = new GridLayout(0,3,0,0);
         bodyBox.setLayout(gridLayout);
         bodyBox.setBackground(new Color(0,0,0,180));
@@ -23,15 +23,15 @@ public class BannerCard extends Card
         bodyBox.add(durabilityLabel);
     }
 
-    public void setBannerType(BannerType type)
+    public void setWeaponType(WeaponType type)
     {
-        bannerType = type;
-        abilityLabel.setText(bannerType.name());
+        weaponType = type;
+        abilityLabel.setText(weaponType.name());
     }
 
-    public BannerType getBannerType()
+    public WeaponType getWeaponType()
     {
-        return bannerType;
+        return weaponType;
     }
 
     public void decrementDurability()

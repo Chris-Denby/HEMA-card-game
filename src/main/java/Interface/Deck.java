@@ -5,23 +5,17 @@
  */
 package Interface;
 
-import Database.JSONHelper;
 import Interface.Cards.Card;
-import Interface.Cards.CreatureCard;
+import Interface.Cards.ActionCard;
 import java.awt.Dimension;
 import java.awt.Point;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 import javax.swing.JLayeredPane;
 import Interface.Constants.CardLocation;
-import java.io.IOException;
+
 import java.util.Collections;
-import java.util.Iterator;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+
 import org.json.simple.JSONObject;
 
 /**
@@ -78,8 +72,8 @@ public class Deck extends JLayeredPane
             card.setCardLocation(CardLocation.OPPONENT_HAND);
             card.setFaceUp(false);
         
-        if(card instanceof CreatureCard)
-            ((CreatureCard)card).setCardValue();
+        if(card instanceof ActionCard)
+            ((ActionCard)card).setCardValue();
         
         cardsInDeck.add(card);
         this.add(card,layer);

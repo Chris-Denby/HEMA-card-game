@@ -5,7 +5,6 @@
  */
 package Interface.Cards;
 
-import Interface.AssetHelper;
 import Interface.Constants;
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -17,7 +16,7 @@ import java.io.Serializable;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import Interface.Constants.CardLocation;
-import Interface.Constants.CreatureEffect;
+import Interface.Constants.ActionEffect;
 import Interface.InnerCardPanel;
 import Interface.PlayArea;
 import Interface.PlayerHand;
@@ -27,9 +26,7 @@ import java.awt.GridLayout;
 import java.awt.Image;
 import java.util.Timer;
 import java.util.TimerTask;
-import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
-import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JTextPane;
 import javax.swing.SwingConstants;
@@ -72,7 +69,7 @@ public class Card extends JPanel implements Serializable, Cloneable
     Font bodyFont = new Font("Arial",Font.PLAIN,bodyFontSize);
     private boolean isSelected = false;
     int imageID;
-    private CreatureEffect creatureEffect = CreatureEffect.NONE;
+    private ActionEffect actionEffect = ActionEffect.NONE;
     private boolean isPlayable;
     JLabel cardNameLabel;
     JPanel topPanel;
@@ -159,16 +156,16 @@ public class Card extends JPanel implements Serializable, Cloneable
         return playerHand;
     }
 
-    public CreatureEffect getCreatureEffect()
+    public ActionEffect getActionEffect()
     {
-        return this.creatureEffect;
+        return this.actionEffect;
     }
 
-    public void setCreatureEffect(CreatureEffect effect) {
-        this.creatureEffect = effect;
-        if(this.getCreatureEffect()!=CreatureEffect.NONE){
-            setBodyText(this.getCreatureEffect().toString());
-            abilityLabel.setText(this.getCreatureEffect().toString().replace('_', ' '));  
+    public void setActionEffect(ActionEffect effect) {
+        this.actionEffect = effect;
+        if(this.getActionEffect()!= ActionEffect.NONE){
+            setBodyText(this.getActionEffect().toString());
+            abilityLabel.setText(this.getActionEffect().toString().replace('_', ' '));
             }
     }
     
@@ -441,12 +438,12 @@ public class Card extends JPanel implements Serializable, Cloneable
             textBox.setParagraphAttributes(attribs, true);
             
             
-            String effectString = creatureEffect.toString().replace('_', ' ');
+            String effectString = actionEffect.toString().replace('_', ' ');
             String effectDescription;
             StringBuilder sb = new StringBuilder();
             
             //ETB EFFECT
-            if(creatureEffect==CreatureEffect.Buff_Power)
+            if(actionEffect == ActionEffect.Buff_Power)
             {
                 int buffValue = Math.round(getPlayCost()/Constants.buffModifier);
                 if(buffValue<1)
@@ -460,7 +457,7 @@ public class Card extends JPanel implements Serializable, Cloneable
                 sb.append("\n");
 
             }
-            else if(creatureEffect==CreatureEffect.Taunt)
+            else if(actionEffect == ActionEffect.Taunt)
             {
                 effectDescription = "You cannot target minions without taunt while in play";
                 sb.append(effectString);
@@ -471,7 +468,7 @@ public class Card extends JPanel implements Serializable, Cloneable
             }
 
             //DEATH EFFECT
-            if(creatureEffect==CreatureEffect.Gain_Life)
+            if(actionEffect == ActionEffect.Gain_Life)
             {
                 effectDescription = "When destroyed, gain " + getPlayCost() + " life";
                 sb.append(effectString);
@@ -479,7 +476,7 @@ public class Card extends JPanel implements Serializable, Cloneable
                 sb.append(effectDescription);
             }
             
-            if(creatureEffect==CreatureEffect.NONE && creatureEffect == CreatureEffect.NONE)
+            if(actionEffect == ActionEffect.NONE && actionEffect == ActionEffect.NONE)
             {
                 sb.append("Basic Minion");
                 sb.append("\n");

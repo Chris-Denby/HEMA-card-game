@@ -7,7 +7,7 @@ package Interface;
 
 import Interface.Cards.*;
 import Interface.Constants.CardLocation;
-import Interface.Constants.CreatureEffect;
+import Interface.Constants.ActionEffect;
 import Interface.Constants.TurnPhase;
 
 import java.awt.*;
@@ -17,6 +17,7 @@ import java.util.*;
 import java.util.Timer;
 import java.util.function.BiConsumer;
 import javax.swing.*;
+import javax.swing.border.LineBorder;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -26,12 +27,11 @@ import java.util.concurrent.ThreadLocalRandom;
 public class PlayArea extends JPanel
 {
     GameWindow gameWindow;
-    Card artifactInPlay = null;
+    WeaponCard weaponInPlay = null;
     boolean isOpponent = false;
     int width;
     int height;
     private boolean isPlayerTurn;
-    //JPanel cardSubPanel;
     JPanel playerSubPanel;
     PlayerBox playerBox;
     CardSubPanelWithSlots cardSubPanel;
@@ -53,11 +53,7 @@ public class PlayArea extends JPanel
         this.setPreferredSize(new Dimension(width,height));
         this.setOpaque(false);
 
-
-        
-        //cardSubPanel = new JPanel();
         cardSubPanel = new CardSubPanelWithSlots();
-        //cardSubPanel.setOpaque(false);
         Dimension cardSubPanelDimension = new Dimension(width,Math.round(height/10)*6);
         cardSubPanel.setPreferredSize(cardSubPanelDimension);
         cardSubPanel.setSize(cardSubPanelDimension);
@@ -144,8 +140,10 @@ public class PlayArea extends JPanel
 
     public boolean addCard(Card card)
     {
-        if(cardSubPanel.checkIfFull())
+        if(card instanceof ActionCard && cardSubPanel.checkIfFull())
             return false;
+
+
 
         gameWindow.playSound("playCard");
         //set card location
@@ -161,12 +159,12 @@ public class PlayArea extends JPanel
 
         //Determine which segment of hte play area to add the card to
         //based on card type
-        if(card instanceof BannerCard){
-            if(artifactInPlay!=null)
+        if(card instanceof WeaponCard){
+            if(weaponInPlay!=null)
             {
-                this.removeCard(artifactInPlay);
+                this.removeCard(weaponInPlay);
             }
-            artifactInPlay = card;
+            weaponInPlay = (WeaponCard) card;
             playerSubPanel.add(card);
         }
         else{
@@ -203,15 +201,13 @@ public class PlayArea extends JPanel
     
     public void removeCard(Card card)
     {
-        if(cardsInPlay.containsKey(card.getCardID()))
-        {
-            playerSubPanel.remove(cardsInPlay.get(card.getCardID()));
-            cardSubPanel.removeCard(cardsInPlay.get(card.getCardID()));
-            addToDiscardPile(card);
-            cardsInPlay.remove(card.getCardID()); 
-            revalidate();
-            repaint();
-        }
+        System.out.println("PlayArea - remove card ("+card.getName()+")");
+        playerSubPanel.remove(cardsInPlay.get(card.getCardID()));
+        cardSubPanel.removeCard(cardsInPlay.get(card.getCardID()));
+        addToDiscardPile(card);
+        cardsInPlay.remove(card.getCardID());
+        revalidate();
+        repaint();
     }
     
     public void addToDiscardPile(Card card)
@@ -232,11 +228,11 @@ public class PlayArea extends JPanel
     
     public void triggerETBEffect(Card card)
     {
-        if(card.getCreatureEffect()==null)
+        if(card.getActionEffect()==null)
             return;
 
         //String effectName = card.getETBeffect().toString().split("_")[0];
-        switch(card.getCreatureEffect())
+        switch(card.getActionEffect())
         {
             case Taunt:
                 //this is a passive ability
@@ -258,9 +254,9 @@ public class PlayArea extends JPanel
                     int playedCardIndex = cardList.indexOf(card);
                     Card c = cardList.get(x);
                     //buff only creatures <buff distance> to the left
-                    if(x>=(playedCardIndex-Constants.buffDistance) && c.getCardID()!=card.getCardID() && c instanceof CreatureCard)
+                    if(x>=(playedCardIndex-Constants.buffDistance) && c.getCardID()!=card.getCardID() && c instanceof ActionCard)
                     {
-                        CreatureCard ccard = (CreatureCard) c;
+                        ActionCard ccard = (ActionCard) c;
                         ccard.setBuffed(buffValue);
                         gameWindow.componentAnimateMap.put(c,"slash");
                     }
@@ -278,10 +274,10 @@ public class PlayArea extends JPanel
     public void triggerDeathFffect(Card card)
     {        
         //remove ETB buffs or trigger death effects
-        if(card.getCreatureEffect()!=null)
+        if(card.getActionEffect()!=null)
         {
             //String ETBeffectName = card.getETBeffect().toString().split("_")[0];
-            switch(card.getCreatureEffect())
+            switch(card.getActionEffect())
             {
                 case Gain_Life:
                     gameWindow.playSound("gainLife");
@@ -305,8 +301,8 @@ public class PlayArea extends JPanel
                         int x = cardList.indexOf(c);
                         int indexOfBuffer = cardList.indexOf(card);
                         
-                        if(x>=(indexOfBuffer-Constants.buffDistance) &&c.getCardID()!=card.getCardID() && c instanceof CreatureCard){
-                            CreatureCard ccard = (CreatureCard) c;
+                        if(x>=(indexOfBuffer-Constants.buffDistance) &&c.getCardID()!=card.getCardID() && c instanceof ActionCard){
+                            ActionCard ccard = (ActionCard) c;
                             if(ccard.getIsBuffed())
                                 ccard.setBuffed(buffValue);
                             }
@@ -454,9 +450,9 @@ public class PlayArea extends JPanel
         //else returns false
         for(Map.Entry<Integer,Card> entry:cardsInPlay.entrySet())
         {
-            if(entry.getValue() instanceof CreatureCard)
+            if(entry.getValue() instanceof ActionCard)
             {
-                CreatureCard c = (CreatureCard) entry.getValue();
+                ActionCard c = (ActionCard) entry.getValue();
                 if(!c.getIsActivated())
                     return true;
                 else
@@ -474,7 +470,7 @@ public class PlayArea extends JPanel
         {
             //for each creature card player has in play
             //if a creature without taunt is present, mark it as not attackable
-            if(c instanceof CreatureCard && ((CreatureCard )c).getCreatureEffect()==CreatureEffect.Taunt)
+            if(c instanceof ActionCard && ((ActionCard)c).getActionEffect()== ActionEffect.Taunt)
                 return true;
         }
         return false;
@@ -484,39 +480,41 @@ public class PlayArea extends JPanel
     {
         GridLayout gridLayout = new GridLayout(1,3,30,30);
         JPanel innerPanel = new JPanel();
-        JPanel slot1PlaceholderPanel = new JPanel();
-        JPanel slot2PlaceholderPanel = new JPanel();
-        JPanel slot3PlaceholderPanel = new JPanel();
         JPanel[] cardSlots = new JPanel[Constants.numCardSlots];
 
         public CardSubPanelWithSlots()
         {
-            //this.setOpaque(false);
+            this.setOpaque(false);
             this.setLayout(new BoxLayout(this,BoxLayout.Y_AXIS));
             Dimension cardSubPanelDimension = new Dimension(width,Math.round(height/10)*6);
             this.setPreferredSize(cardSubPanelDimension);
             this.setSize(cardSubPanelDimension);
-
-            slot1PlaceholderPanel.setBackground(Constants.shadowColor);
-            slot2PlaceholderPanel.setBackground(Constants.shadowColor);
-            slot3PlaceholderPanel.setBackground(Constants.shadowColor);
-
             innerPanel.setLayout(gridLayout);
-            innerPanel.add(slot1PlaceholderPanel);
-            innerPanel.add(slot2PlaceholderPanel);
-            innerPanel.add(slot3PlaceholderPanel);
-
-            cardSlots[0] = slot1PlaceholderPanel;
-            cardSlots[1] = slot2PlaceholderPanel;
-            cardSlots[2] = slot3PlaceholderPanel;
-
+            innerPanel.setOpaque(false);
+            innerPanel.setBorder(new LineBorder(new Color(000000),10,false));
+            innerPanel.setBackground(Constants.shadowColor);
             this.add(innerPanel);
+
+            //set up placeholder panels
+            for(int x=0;x<Constants.numCardSlots;x++)
+            {
+                JPanel cardSlot = new JPanel();
+                innerPanel.add(cardSlot);
+                cardSlots[x] = cardSlot;
+                cardSlot.setOpaque(false);
+                SlotPlaceHolderPanel panel = new SlotPlaceHolderPanel(x+1);
+                cardSlots[x].add(panel);
+            }
         }
 
         public boolean checkIfFull()
         {
-            //if last slot is filled, all slots are taken
-            if(cardSlots[Constants.numCardSlots-1].getComponentCount()>0)
+            int cardsInSlots = 0;
+            for(JPanel c:cardSlots){
+                if(c.getComponentCount()>0 && c.getComponent(0) instanceof Card)
+                    cardsInSlots++;
+            }
+            if(cardsInSlots==Constants.numCardSlots)
                 return true;
             else
                 return false;
@@ -527,7 +525,8 @@ public class PlayArea extends JPanel
             //add the card to the left most free slot
             for(int x=0;x<Constants.numCardSlots;x++)
             {
-                if(cardSlots[x].getComponentCount()==0){
+                if(!(cardSlots[x].getComponent(0) instanceof Card)){
+                    cardSlots[x].removeAll();
                     cardSlots[x].add(card);
                     return;
                 }
@@ -536,13 +535,64 @@ public class PlayArea extends JPanel
 
         public void removeCard(Card card)
         {
-            for(int x=0;x<cardSlots.length-1;x++)
+            System.out.println("card sub panel - remove card ("+card.getName()+") cardID: "+card.getCardID());
+            for(int x=0;x<cardSlots.length;x++)
             {
-                if(cardSlots[x].getComponentCount()>0 && ((Card) cardSlots[x].getComponent(0)).getCardID()==card.getCardID())
+                if(cardSlots[x].getComponentCount()>0 && cardSlots[x].getComponent(0) instanceof Card && ((Card) cardSlots[x].getComponent(0)).getCardID()==card.getCardID())
                 {
+                    System.out.println("found card to remove");
                     cardSlots[x].removeAll();
+                    SlotPlaceHolderPanel panel = new SlotPlaceHolderPanel(x+1);
+                    cardSlots[x].add(panel);
                 }
             }
+        }
+
+        public class SlotPlaceHolderPanel extends JPanel
+        {
+            int slotNumber;
+            public SlotPlaceHolderPanel(int slotNumber)
+            {
+                super();
+                this.slotNumber = slotNumber;
+                this.add(new JLabel("ACTION " + slotNumber));
+                this.setOpaque(false);
+            }
+
+            /**
+            @Override
+            public void paintComponent(Graphics g)
+            {
+                super.paintComponent(g);
+                Graphics2D graphics = (Graphics2D) g;
+
+                graphics.drawString("ACTION "+ slotNumber,this.getWidth()/2,this.getHeight()/2);
+
+                //this.setForeground(Color.black);
+                //Color strokeColor = getForeground();
+
+                //graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                //draw shadow
+                /**
+                if(dropShadow){
+
+                    graphics.setColor(shadowColor);
+                    graphics.fillRoundRect(shadowOffset,shadowOffset,width-strokeSize-shadowOffset,height-strokeSize-shadowOffset,arcSize,arcSize);
+                }
+
+                //draw inside
+                graphics.setColor(backgroundColor);
+                graphics.fillRoundRect(0,0,width-shadowGap,height-shadowGap,arcSize,arcSize);
+
+                //draw outline
+                graphics.setColor(strokeColor);
+                graphics.setStroke(new BasicStroke(strokeSize));
+                graphics.drawRoundRect(0,0,width-shadowGap,height-shadowGap,arcSize,arcSize);
+
+            }
+            **/
+
         }
 
     }

@@ -15,8 +15,8 @@ public class Constants
 {
     public static final int windowWidth = 900;
     public static final int windowHeight = 800;
-    public static final int maxHandSize = 7;
-    public static final int maxResourceAmount = 7;
+    public static final int maxHandSize = 5;
+    public static final int maxResourceAmount = 5;
     public static final int defaultPlayerHealth = 5;
     public static final int turnTimeLimit = 30;
     public static final int discardTimeLimit = 10;
@@ -34,7 +34,7 @@ public class Constants
     public static final Color mythicColor = new Color(255,128,0,255);
     public static final int numCardSlots = 3;
 
-    public static enum BannerType
+    public static enum WeaponType
     {
         Longsword,
         Rapier,
@@ -70,7 +70,7 @@ public class Constants
         Stun;
     }
     
-    public static enum CreatureEffect
+    public static enum ActionEffect
     {
         NONE,
         Stealth, //card comes in face down to opponent until used

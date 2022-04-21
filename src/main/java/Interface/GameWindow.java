@@ -7,7 +7,7 @@ package Interface;
 
 import Database.JSONHelper;
 import Interface.Cards.Card;
-import Interface.Cards.CreatureCard;
+import Interface.Cards.ActionCard;
 import Interface.Cards.PlayerBox;
 import Interface.Cards.SpellCard;
 import NetCode.TCPClient;
@@ -23,7 +23,7 @@ import java.util.*;
 import javax.swing.*;
 
 import Interface.Constants.CardLocation;
-import Interface.Constants.CreatureEffect;
+import Interface.Constants.ActionEffect;
 import Interface.Constants.SpellEffect;
 import Interface.Constants.TurnPhase;
 import java.awt.Component;
@@ -47,7 +47,6 @@ import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.UnsupportedAudioFileException;
 
 import org.json.simple.JSONObject;
-import org.w3c.dom.ls.LSOutput;
 
 
 /**
@@ -249,7 +248,7 @@ public class GameWindow extends JPanel
             if(card instanceof SpellCard)
                 return;
 
-            if(cardEvent.getOriginCard() instanceof CreatureCard && card instanceof CreatureCard)
+            if(cardEvent.getOriginCard() instanceof ActionCard && card instanceof ActionCard)
             {
                 //>> PREVENT IF TAUNT PREVENTS ATTACK
                 //if its the players turn
@@ -258,7 +257,7 @@ public class GameWindow extends JPanel
                 //RETURN!!
 
                 if(this.isPlayerTurn
-                        && ((CreatureCard) card).getCreatureEffect()!=CreatureEffect.Taunt
+                        && ((ActionCard) card).getActionEffect()!= ActionEffect.Taunt
                         && opponentsPlayArea.checkForTauntCreature()){
                     return;
                 }
@@ -353,7 +352,7 @@ public class GameWindow extends JPanel
                 executeCardEvent();
             }
             //if the origin is a creature
-            else if(cardEvent.getOriginCard() instanceof CreatureCard)
+            else if(cardEvent.getOriginCard() instanceof ActionCard)
             {
                 //and it isnt the players turn
                 //allow opponent to block
@@ -450,10 +449,10 @@ public class GameWindow extends JPanel
 
     public void requestResolveCombat()
     {
-        if(cardEvent.getOriginCard() instanceof CreatureCard && cardEvent.getTargetCard() instanceof CreatureCard)
+        if(cardEvent.getOriginCard() instanceof ActionCard && cardEvent.getTargetCard() instanceof ActionCard)
             executeCardEvent();
         else
-        if(cardEvent.getOriginCard() instanceof CreatureCard && cardEvent.getTargetPlayerBox()!=null)
+        if(cardEvent.getOriginCard() instanceof ActionCard && cardEvent.getTargetPlayerBox()!=null)
         {
             setTurnPhase(TurnPhase.DECLARE_BLOCKERS);
 
@@ -504,7 +503,6 @@ public class GameWindow extends JPanel
 
             if(spellCard.getSpellEffect()==SpellEffect.Draw_cards)
             {
-
                 combatTask = new TimerTask()
                 {
                     @Override
@@ -539,24 +537,22 @@ public class GameWindow extends JPanel
                         componentAnimateMap.put(originCard,"slash");
                         drawAnimations();
 
-                        if(cardEvent.getTargetCard() instanceof CreatureCard)
+                        if(cardEvent.getTargetCard() instanceof ActionCard)
                         {
-                            CreatureCard ccard;
+                            ActionCard ccard;
                             if(getPlayerLocalCard(cardEvent.getTargetCard().getCardID())!=null){
-                                ccard = (CreatureCard) getPlayerLocalCard(cardEvent.getTargetCard().getCardID());
+                                ccard = (ActionCard) getPlayerLocalCard(cardEvent.getTargetCard().getCardID());
                             }
                             else{
-                                ccard = (CreatureCard) cardEvent.getTargetCard();
+                                ccard = (ActionCard) cardEvent.getTargetCard();
                             }
                             ccard.takeDamage(cardEvent.getOriginCard().getPlayCost());
                             componentAnimateMap.put(ccard,"explode");
-                            //drawAnimations("explode",null,ccard);
                             drawAnimations();
                         }
                         if(cardEvent.getTargetPlayerBox()!=null)
                         {
                             cardEvent.getTargetPlayerBox().takeDamage(cardEvent.getOriginCard().getPlayCost());
-                            //drawAnimation("explode",null,cardEvent.getTargetPlayerBox());
                             componentAnimateMap.put(cardEvent.getTargetPlayerBox(),"explode");
                             drawAnimations();
                         }
@@ -582,15 +578,15 @@ public class GameWindow extends JPanel
                         componentAnimateMap.put(originCard,"slash");
                         drawAnimations();
 
-                        if(cardEvent.getTargetCard() instanceof CreatureCard)
+                        if(cardEvent.getTargetCard() instanceof ActionCard)
                         {
                             //set targets
-                            CreatureCard ccard;
+                            ActionCard ccard;
                             if(getPlayerLocalCard(cardEvent.getTargetCard().getCardID())!=null){
-                                ccard = (CreatureCard) getPlayerLocalCard(cardEvent.getTargetCard().getCardID());
+                                ccard = (ActionCard) getPlayerLocalCard(cardEvent.getTargetCard().getCardID());
                             }
                             else{
-                                ccard = (CreatureCard) cardEvent.getTargetCard();
+                                ccard = (ActionCard) cardEvent.getTargetCard();
                             }
 
                             //execute effect
@@ -614,11 +610,11 @@ public class GameWindow extends JPanel
         }
         else
         {
-            if(event.getOriginCard() instanceof CreatureCard & event.getTargetCard() instanceof CreatureCard)
+            if(event.getOriginCard() instanceof ActionCard & event.getTargetCard() instanceof ActionCard)
             {
                 //exchange damage between origin and target
-                CreatureCard origin = (CreatureCard) originCard;
-                CreatureCard target = (CreatureCard) targetCard;
+                ActionCard origin = (ActionCard) originCard;
+                ActionCard target = (ActionCard) targetCard;
 
                 TimerTask originDamageTask = new TimerTask() {
                     @Override
@@ -628,11 +624,11 @@ public class GameWindow extends JPanel
                         componentAnimateMap.put(target,"slash");
 
                         //add heal animation for Gain_Life ability
-                        if(origin.getPower()>=target.getToughness() && target.getCreatureEffect()==CreatureEffect.Gain_Life){
+                        if(origin.getPower()>=target.getToughness() && target.getActionEffect()== ActionEffect.Gain_Life){
                                 componentAnimateMap.put(target.getPlayArea().playerBox,"heal");
                         }
 
-                        if(target.getPower()>=origin.getToughness() && origin.getCreatureEffect()==CreatureEffect.Gain_Life){
+                        if(target.getPower()>=origin.getToughness() && origin.getActionEffect()== ActionEffect.Gain_Life){
                                 componentAnimateMap.put(origin.getPlayArea().playerBox,"heal");
                         }
 
@@ -647,12 +643,12 @@ public class GameWindow extends JPanel
                 timer.schedule(originDamageTask, 500);
             }
             else
-            if(event.getOriginCard() instanceof CreatureCard & event.getTargetPlayerBox() !=null)
+            if(event.getOriginCard() instanceof ActionCard & event.getTargetPlayerBox() !=null)
             {
                 //creature does damage to target player
-                CreatureCard origin = (CreatureCard) originCard;
+                ActionCard origin = (ActionCard) originCard;
                 PlayerBox target = event.getTargetPlayerBox();
-                CreatureCard blocker = (CreatureCard) event.getBlockingCard();
+                ActionCard blocker = (ActionCard) event.getBlockingCard();
 
                 final int originPower = origin.getPower();
                 final int blockerPower;
@@ -1083,8 +1079,8 @@ public class GameWindow extends JPanel
     {
         if(cardZoomGlassPane==null)
         {
-            CreatureCard cc = (CreatureCard) card;
-            CreatureCard zoomedCard = cc.getClone(getImageFromCache(card.getImageID()));
+            ActionCard cc = (ActionCard) card;
+            ActionCard zoomedCard = cc.getClone(getImageFromCache(card.getImageID()));
             //if glass pane is currently hidden
             //show zoomed in card glass pane
             rootPane = this.getRootPane();

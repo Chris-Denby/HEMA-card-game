@@ -7,7 +7,7 @@ package Interface.Cards;
 
 import Interface.Constants;
 import Interface.Constants.CardLocation;
-import Interface.Constants.CreatureEffect;
+import Interface.Constants.ActionEffect;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.Graphics;
@@ -21,7 +21,7 @@ import javax.swing.border.LineBorder;
  *
  * @author chris
  */
-public class CreatureCard extends Card
+public class ActionCard extends Card
 {
     private int power = 1;
     private int toughness = 1;
@@ -31,10 +31,10 @@ public class CreatureCard extends Card
     private Font statFont = new Font("Courier",Font.BOLD,20);
     private boolean isBuffed = false;
     private int buffedBy = 0;
-    private Constants.BannerType bannerType = null;
+    private Constants.WeaponType weaponType = null;
     
     
-    public CreatureCard(String cardName, int imageID) 
+    public ActionCard(String cardName, int imageID)
     {
         super(cardName,imageID);
         
@@ -65,12 +65,12 @@ public class CreatureCard extends Card
         bodyBox.add(toughnessLabel);     
     }
 
-    public Constants.BannerType getBannerType() {
-        return bannerType;
+    public Constants.WeaponType getWeaponType() {
+        return weaponType;
     }
 
-    public void setBannerType(Constants.BannerType bannerType) {
-        this.bannerType = bannerType;
+    public void setWeaponType(Constants.WeaponType weaponType) {
+        this.weaponType = weaponType;
     }
 
     public int getPower()
@@ -147,6 +147,7 @@ public class CreatureCard extends Card
             //if toughness is reduced to 0 or below - it dies
             this.playArea.triggerDeathFffect(this);
             playArea.removeCard(this);
+            System.out.println("card - remove card");
         }
         
         toughnessLabel.setForeground(Color.red);
@@ -160,15 +161,15 @@ public class CreatureCard extends Card
    
     }
     
-    public CreatureCard getClone(Image img)
+    public ActionCard getClone(Image img)
     {
         //this method creates a deep copy of the card and returns it
-        CreatureCard clone = new CreatureCard(getName(),getImageID());
+        ActionCard clone = new ActionCard(getName(),getImageID());
         clone.setImage(img);
         clone.setPlayCost(getPlayCost());
         clone.setPower(power);
         clone.setToughness(toughness);
-        clone.setCreatureEffect(getCreatureEffect());
+        clone.setActionEffect(getActionEffect());
         //set picture box
         return clone;
     }
@@ -186,7 +187,7 @@ public class CreatureCard extends Card
         **/
 
         int cardValue = power + toughness;
-        if(getCreatureEffect()!=CreatureEffect.NONE)
+        if(getActionEffect()!= ActionEffect.NONE)
         cardValue++;
         
         int borderStroke = 1;
@@ -194,13 +195,13 @@ public class CreatureCard extends Card
         LineBorder border;
         Color borderColor = Constants.commonColor;
         
-        if(getCreatureEffect()!=CreatureEffect.NONE)
+        if(getActionEffect()!= ActionEffect.NONE)
             borderColor = Constants.uncommonColor;
         
-        if((power+toughness)>Constants.maxResourceAmount-3 && getCreatureEffect()!=CreatureEffect.NONE)
+        if((power+toughness)>Constants.maxResourceAmount-3 && getActionEffect()!= ActionEffect.NONE)
             borderColor = Constants.rareColor;
         
-        if((power+toughness)>Constants.maxResourceAmount+3 && getCreatureEffect()!=CreatureEffect.NONE)
+        if((power+toughness)>Constants.maxResourceAmount+3 && getActionEffect()!= ActionEffect.NONE)
             borderColor = Constants.mythicColor;
         
         //don't set border for common cards

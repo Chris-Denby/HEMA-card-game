@@ -6,7 +6,7 @@
 package Interface;
 
 import Interface.Cards.Card;
-import Interface.Cards.CreatureCard;
+import Interface.Cards.ActionCard;
 import Interface.Constants.CardLocation;
 import Interface.Constants.TurnPhase;
 
@@ -14,7 +14,6 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 
@@ -190,7 +189,7 @@ public class PlayerHand extends JLayeredPane
         //if the played card is a creature
         //and the maxmimum num of cards are in play
         //dont allow the card to be played
-        if(card instanceof CreatureCard && playArea.getNumCardsInPlayArea()==Constants.maxCaradsInPlayArea){
+        if(card instanceof ActionCard && playArea.getNumCardsInPlayArea()==Constants.maxCaradsInPlayArea){
             gameWindow.playSound("playAreaFull");
             return;
         }

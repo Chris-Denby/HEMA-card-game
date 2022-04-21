@@ -5,12 +5,12 @@
  */
 package Database;
 
-import Interface.Cards.BannerCard;
+import Interface.Cards.WeaponCard;
 import Interface.Cards.Card;
-import Interface.Cards.CreatureCard;
+import Interface.Cards.ActionCard;
 import Interface.Cards.SpellCard;
 import Interface.Constants;
-import Interface.Constants.CreatureEffect;
+import Interface.Constants.ActionEffect;
 import Interface.Constants.SpellEffect;
 import java.io.File;
 import java.io.FileWriter;
@@ -85,17 +85,17 @@ public class JSONHelper
             //System.out.println(o.get("id").toString() + o.get("name").toString() + o.get("imageID").toString());
             
             
-            if(o.get("type").equals("class Interface.Cards.CreatureCard"))
+            if(o.get("type").equals("class Interface.Cards.ActionCard"))
             {
-                CreatureCard cCard = new CreatureCard("",1);
+                ActionCard cCard = new ActionCard("",1);
                 cCard.setImageID(Integer.parseInt(o.get("imageID").toString()));
                 cCard.setName((String)o.get("name"));
                 cCard.setCardID(Integer.parseInt(o.get("id").toString()));
                 cCard.setPlayCost(Integer.parseInt(o.get("cost").toString())); 
                 cCard.setPower(Integer.parseInt(o.get("power").toString()));; 
                 cCard.setToughness(Integer.parseInt(o.get("toughness").toString()));
-                cCard.setCreatureEffect(CreatureEffect.valueOf(o.get("creatureEffect").toString()));
-                cCard.setBannerType(Constants.BannerType.valueOf(o.get("creatureType").toString()));
+                cCard.setActionEffect(ActionEffect.valueOf(o.get("actionEffect").toString()));
+                cCard.setWeaponType(Constants.WeaponType.valueOf(o.get("weaponType").toString()));
                 cardsList.add(cCard);
             }
             else
@@ -110,13 +110,13 @@ public class JSONHelper
                 cardsList.add(sCard);
             }
             else
-            if(o.get("type").equals("class Interface.Cards.BannerCard"))
+            if(o.get("type").equals("class Interface.Cards.WeaponCard"))
             {
-                BannerCard aCard = new BannerCard("",1);
+                WeaponCard aCard = new WeaponCard("",1);
                 aCard.setName((String)o.get("name"));
                 aCard.setCardID(Integer.parseInt(o.get("id").toString()));
                 aCard.setPlayCost(Integer.parseInt(o.get("cost").toString()));
-                aCard.setBannerType(Constants.BannerType.valueOf(o.get("bannerType").toString()));
+                aCard.setWeaponType(Constants.WeaponType.valueOf(o.get("weaponType").toString()));
                 cardsList.add(aCard);
             }
         }
@@ -127,7 +127,7 @@ public class JSONHelper
     {
         
         List<Card> cardList = new ArrayList<Card>();
-        List<CreatureEffect> creatureEffectsList = Arrays.asList(CreatureEffect.values());
+        List<ActionEffect> actionEffectsList = Arrays.asList(ActionEffect.values());
         List<SpellEffect> spellEffectsList = Arrays.asList(SpellEffect.values());
         int statLowerLimit = 1;
         int statUpperLimit = Constants.maxResourceAmount;
@@ -137,8 +137,8 @@ public class JSONHelper
             Card card = null;
             if(x<=30)
             {
-                card = new CreatureCard("",1);
-                CreatureCard c = (CreatureCard) card;
+                card = new ActionCard("",1);
+                ActionCard c = (ActionCard) card;
 
                 //SET MANA CURVE
                 if(x<=20){
@@ -155,19 +155,16 @@ public class JSONHelper
                 
                 
                 //SET CARD EFFECTS (25% chance of getting an effect)
-                int numOfEffects = creatureEffectsList.size()-1;
+                int numOfEffects = actionEffectsList.size()-1;
                 int y = ThreadLocalRandom.current().nextInt(0,numOfEffects*3);
                 if(y<=numOfEffects)
-                    c.setCreatureEffect(creatureEffectsList.get(y));                        
+                    c.setActionEffect(actionEffectsList.get(y));
 
-                //force a single spell effect - for testing only
-                //c.setCreatureEffect(CreatureEffect.Gain_Life);
-
-                c.setName("Creature");
+                c.setName("Action");
                 c.setImageID(ThreadLocalRandom.current().nextInt(1,46));
                 c.setCardID(System.identityHashCode(c));
 
-                c.setBannerType(Constants.BannerType.values()[ThreadLocalRandom.current().nextInt(1, Constants.BannerType.values().length)]);
+                c.setWeaponType(Constants.WeaponType.values()[ThreadLocalRandom.current().nextInt(1, Constants.WeaponType.values().length)]);
 
                 
                 //play cost is calculated by
@@ -178,7 +175,7 @@ public class JSONHelper
                  */
                                 
                 int playCost = Math.round((c.getPower()+c.getToughness())/2);
-                if(c.getCreatureEffect()!=CreatureEffect.NONE)
+                if(c.getActionEffect()!= ActionEffect.NONE)
                     playCost++;
                 if(playCost>Constants.maxResourceAmount)
                     playCost=Constants.maxResourceAmount;
@@ -205,12 +202,12 @@ public class JSONHelper
             else
             if(x>=50 && x<=60)
             {
-                card = new BannerCard("", 1);
-                BannerCard ac = (BannerCard) card;
+                card = new WeaponCard("", 1);
+                WeaponCard ac = (WeaponCard) card;
                 ac.setName("Equipment");
                 ac.setCardID(System.identityHashCode(ac));
                 ac.setPlayCost(0);
-                ac.setBannerType(Constants.BannerType.values()[ThreadLocalRandom.current().nextInt(1, Constants.BannerType.values().length)]);
+                ac.setWeaponType(Constants.WeaponType.values()[ThreadLocalRandom.current().nextInt(1, Constants.WeaponType.values().length)]);
 
             }
             cardList.add(card);
@@ -237,20 +234,20 @@ public class JSONHelper
         //convert card object to JSON object
         JSONObject cardJSON = new JSONObject();
         //add key/value pairs for the card
-        if(c instanceof CreatureCard)
+        if(c instanceof ActionCard)
         {
-            cardJSON.put("power",((CreatureCard) c).getPower());
-            cardJSON.put("toughness",((CreatureCard) c).getToughness());
-            cardJSON.put("creatureEffect", c.getCreatureEffect().toString());
-            cardJSON.put("creatureType", ((CreatureCard) c).getBannerType());
+            cardJSON.put("power",((ActionCard) c).getPower());
+            cardJSON.put("toughness",((ActionCard) c).getToughness());
+            cardJSON.put("actionEffect", c.getActionEffect().toString());
+            cardJSON.put("weaponType", ((ActionCard) c).getWeaponType());
         }
         if(c instanceof SpellCard)
         {
             cardJSON.put("effect", ((SpellCard) c).getSpellEffect());
         }
-        if(c instanceof BannerCard)
+        if(c instanceof WeaponCard)
         {
-            cardJSON.put("bannerType",((BannerCard) c).getBannerType().toString());
+            cardJSON.put("weaponType",((WeaponCard) c).getWeaponType().toString());
         }
         cardJSON.put("id",c.getCardID());
         cardJSON.put("name",c.getName());
@@ -265,14 +262,14 @@ public class JSONHelper
     {
         Card card = null;
 
-        if(o.get("type").equals("class Interface.Cards.CreatureCard"))
+        if(o.get("type").equals("class Interface.Cards.ActionCard"))
         {
-            card = new CreatureCard("",1);
-            CreatureCard cCard = (CreatureCard) card; 
+            card = new ActionCard("",1);
+            ActionCard cCard = (ActionCard) card; 
             cCard.setPower((int) o.get("power")); 
             cCard.setToughness((int) o.get("toughness")); 
-            cCard.setCreatureEffect(CreatureEffect.valueOf((String)o.get("creatureEffect")));
-            cCard.setBannerType(Constants.BannerType.valueOf(o.get("creatureType").toString()));
+            cCard.setActionEffect(ActionEffect.valueOf((String)o.get("actionEffect")));
+            cCard.setWeaponType(Constants.WeaponType.valueOf(o.get("weaponType").toString()));
         }
         else
         if(o.get("type").equals("class Interface.Cards.SpellCard"))
@@ -282,11 +279,11 @@ public class JSONHelper
             sCard.setSpellEffect(SpellEffect.valueOf(o.get("effect").toString()));
         }
         else
-        if(o.get("type").equals("class Interface.Cards.BannerCard"))
+        if(o.get("type").equals("class Interface.Cards.WeaponCard"))
         {
-            card = new BannerCard("",1);
-            BannerCard aCard = (BannerCard) card;
-            aCard.setBannerType(Constants.BannerType.valueOf(o.get("bannerType").toString()));
+            card = new WeaponCard("",1);
+            WeaponCard aCard = (WeaponCard) card;
+            aCard.setWeaponType(Constants.WeaponType.valueOf(o.get("weaponType").toString()));
         }
         
         card.setImageID((int) o.get("imageID"));
