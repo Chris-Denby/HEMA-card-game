@@ -156,17 +156,12 @@ public class JSONHelper
                 
                 //SET CARD EFFECTS (25% chance of getting an effect)
                 int numOfEffects = actionEffectsList.size()-1;
-                int y = ThreadLocalRandom.current().nextInt(0,numOfEffects*3);
-                if(y<=numOfEffects)
-                    c.setActionEffect(actionEffectsList.get(y));
-
+                c.setActionEffect(actionEffectsList.get(ThreadLocalRandom.current().nextInt(0,numOfEffects)));
                 c.setName("Action");
                 c.setImageID(ThreadLocalRandom.current().nextInt(1,46));
                 c.setCardID(System.identityHashCode(c));
-
                 c.setWeaponType(Constants.WeaponType.values()[ThreadLocalRandom.current().nextInt(1, Constants.WeaponType.values().length)]);
 
-                
                 //play cost is calculated by
                 /**
                  * = ((power + toughness)/2)-2
@@ -175,8 +170,6 @@ public class JSONHelper
                  */
                                 
                 int playCost = Math.round((c.getPower()+c.getToughness())/2);
-                if(c.getActionEffect()!= ActionEffect.NONE)
-                    playCost++;
                 if(playCost>Constants.maxResourceAmount)
                     playCost=Constants.maxResourceAmount;
                 
@@ -238,7 +231,7 @@ public class JSONHelper
         {
             cardJSON.put("power",((ActionCard) c).getPower());
             cardJSON.put("toughness",((ActionCard) c).getToughness());
-            cardJSON.put("actionEffect", c.getActionEffect().toString());
+            cardJSON.put("actionEffect", ((ActionCard) c).getActionEffect().toString());
             cardJSON.put("weaponType", ((ActionCard) c).getWeaponType());
         }
         if(c instanceof SpellCard)

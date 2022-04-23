@@ -19,6 +19,8 @@ import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.util.*;
 import javax.swing.*;
 
@@ -26,6 +28,7 @@ import Interface.Constants.CardLocation;
 import Interface.Constants.ActionEffect;
 import Interface.Constants.SpellEffect;
 import Interface.Constants.TurnPhase;
+import Interface.Constants.ActionEffect;
 import java.awt.Component;
 import java.awt.Font;
 import java.awt.Image;
@@ -65,10 +68,9 @@ public class GameWindow extends JPanel
     private Deck playerDeck;
     private Deck opponentsDeck;
     private GameControlPanel gameControlPanel;
-    private ResourcePanel resourcePanel;
+    private ResourcePanel playerResourcePanel;
+    private ResourcePanel opponentsResourcePanel;
     private CentrePanel centrePanel;
-    private Deque<CardEvent> cardEventStack = new ArrayDeque<CardEvent>();
-    private CardEvent cardEvent = null;
     private JRootPane rootPane;
     private DrawLineGlassPane drawLineGlassPane;
     private CardZoomGlassPane cardZoomGlassPane;
@@ -76,7 +78,7 @@ public class GameWindow extends JPanel
     private boolean isPlayerTurn = false;
     private int turnPasses = 0;
     private int turnNumber = 1;
-    private TurnPhase turnPhase;
+    private TurnPhase turnPhase = null;
     private int turnCycleIncrementor = 0;
     private Color overlayColor = new Color(223,223,223,200);
     private StartGameWindow startGameWindow;
@@ -87,6 +89,9 @@ public class GameWindow extends JPanel
     private AnimationGlassPane animationGlassPane;
     public Map<Component,String> componentAnimateMap = new HashMap<Component,String>();
 
+    //private Deque<CardEvent> actionCardStack = new ArrayDeque<CardEvent>();
+    private ArrayList<CardEvent> actionCardStack = new ArrayList<CardEvent>();
+    private CardEvent cardEvent = null;
     
     //constructor
     public GameWindow(JTabbedPane pane, StartGameWindow startGameWindow)
@@ -106,37 +111,40 @@ public class GameWindow extends JPanel
         
                 
         //INITIALISE COMPONENTS
-        resourcePanel = new ResourcePanel(getWidth(),getHeight(),this);
-        resourcePanel.setOpaque(true);
-        resourcePanel.setPreferredSize(new Dimension(Math.round(getWidth()/16),getHeight()));
+        playerResourcePanel = new ResourcePanel(getWidth(),getHeight(),this);
+        //playerResourcePanel.setOpaque(true);
+        playerResourcePanel.setPreferredSize(new Dimension(getWidth(),Math.round(getHeight()/10)));
+        opponentsResourcePanel = new ResourcePanel(getWidth(),getHeight(),this);
+        //opponentsResourcePanel.setOpaque(true);
+        opponentsResourcePanel.setPreferredSize(new Dimension(getWidth(),Math.round(getHeight()/10)));
+
+
         playerPlayArea = new PlayArea(getWidth(),getHeight(),this, false);
         opponentsPlayArea = new PlayArea(getWidth(),getHeight(),this, true);
-        playerHand = new PlayerHand(getWidth(),getHeight(), playerPlayArea, false,this,resourcePanel);
-        opponentsHand = new PlayerHand(getWidth(),getHeight(), opponentsPlayArea, true,this,resourcePanel);
+        playerHand = new PlayerHand(getWidth(),getHeight(), playerPlayArea, false,this,playerResourcePanel);
+        opponentsHand = new PlayerHand(getWidth(),getHeight(), opponentsPlayArea, true,this,opponentsResourcePanel);
         opponentsHand.setEnabled(false);
         playerDeck = new Deck(playerHand, playerPlayArea, this,false); 
         opponentsDeck = new Deck(opponentsHand, opponentsPlayArea, this,true);  
         opponentsDeck.setEnabled(false);
         gameControlPanel = new GameControlPanel(this.getHeight(), this.getWidth(),this);
-        
-        
-        
+
         //ADD COMPONENTS        
         this.add(opponentsHand, BorderLayout.PAGE_START);
         
         centrePanel = new CentrePanel();
         centrePanel.setOpaque(false);
         centrePanel.setLayout(new BoxLayout(centrePanel, BoxLayout.PAGE_AXIS));
+        centrePanel.add(opponentsResourcePanel);
         centrePanel.add(opponentsPlayArea, BorderLayout.CENTER);
         centrePanel.add(playerPlayArea);
+        centrePanel.add(playerResourcePanel);
         
         JScrollPane scrollPane = new JScrollPane(playerHand);
 
         
         this.add(gameControlPanel, BorderLayout.WEST);
-        this.add(resourcePanel,BorderLayout.EAST);
         this.add(centrePanel, BorderLayout.CENTER);
-        //this.add(playerHand, BorderLayout.PAGE_END);
         this.add(scrollPane, BorderLayout.PAGE_END);
         
         playerHand.setDeckArea(playerDeck);    
@@ -150,25 +158,26 @@ public class GameWindow extends JPanel
         playAmbientSound();
         playMusic();
         centrePanel.setImage(getImageFromCache(000));
-        
-        
 
-        Timer timer = new Timer();       
-        TimerTask tt = new TimerTask() {
+        Timer timer = new Timer();
+
+        TimerTask beginGameTask = new TimerTask() {
+            @Override
+            public void run()
+            {
+                beingGame();
+            }
+        };
+        TimerTask dealTask = new TimerTask() {
             @Override
             public void run() 
             {    
                 //populate players deck
                 playerDeck.populateDeckAndDeal(jsonHelper.createCardLists());
-                if(netClient!=null)
-                {
-                    //if this window is the server
-                    isPlayerTurn = true;
-                    passTurn();
-                }
+                timer.schedule(beginGameTask, 1500);
             }
         };
-        timer.schedule(tt, 1500); 
+        timer.schedule(dealTask, 1500);
     }
     
     public GameControlPanel getGameControlPanel()
@@ -180,6 +189,32 @@ public class GameWindow extends JPanel
         return jsonHelper;
     }
 
+    public void beingGame()
+    {
+        while(true)
+        {
+            if(opponentsHand.getCardsInHand().size()==Constants.maxHandSize && playerHand.getCardsInHand().size()==Constants.maxHandSize)
+                break;
+        }
+
+        if(isNetServer())
+        {
+            //if application is the server - begin turn
+            passTurn();
+            Message message = new Message();
+            message.setText("OPPONENT_PASS_TURN");
+            sendMessage(message,null);
+        }
+    }
+
+    public boolean isNetServer()
+    {
+        if(netServer==null)
+            return false;
+        else
+            return true;
+    }
+
     public void createCardEvent(Card card)
     {        
         //@@ Parameter originCarnd - the player hand which fired the method
@@ -189,16 +224,13 @@ public class GameWindow extends JPanel
         //if the cost of the selected card is greater than the available resources - exit the method       
 
         //select a card as event source only if it is not yet selected
-        //dont allow origin card to be selected from opponents hand  
-        
-       
+        //dont allow origin card to be selected from opponents hand
         if(cardEvent == null && !card.getIsSelected() && !card.getIsActivated())
         {
             //if origin card is in opponents play area, do nothing
             if(this.isPlayerTurn & card.getCardLocation()==CardLocation.OPPONENT_PLAY_AREA)
                 return;
-            
-            setTurnPhase(TurnPhase.COMBAT_PHASE);
+
             cardEvent = new CardEvent(card);
             //activate cards in the play areas
             card.setIsSelected(true);
@@ -257,7 +289,7 @@ public class GameWindow extends JPanel
                 //RETURN!!
 
                 if(this.isPlayerTurn
-                        && ((ActionCard) card).getActionEffect()!= ActionEffect.Taunt
+                        && ((ActionCard) card).getActionEffect()!= ActionEffect.Mastercut
                         && opponentsPlayArea.checkForTauntCreature()){
                     return;
                 }
@@ -286,30 +318,6 @@ public class GameWindow extends JPanel
         }
         //if turn phase is delcare blockers
         //the card added is to be the blocker
-        else
-        if(turnPhase==TurnPhase.DECLARE_BLOCKERS)
-        {
-            //add blocker to card event
-            cardEvent.addBlockingCard(card);
-
-
-            //show blocker selected
-            drawPointer(cardEvent.getOriginCard(),cardEvent.getBlockingCard());
-
-            card.setIsSelected(true);
-
-            if(!isPlayerTurn)
-            {
-                //send message to connected server/client
-                Message message = new Message();
-                message.setText("OPPONENT_DECLARED_BLOCKER");
-                sendMessage(message,jsonHelper.convertCardToJSON(card));
-            }
-
-            //after blocker declared
-            //execute the card event
-            executeCardEvent();
-        }
     }
 
     public void createCardEvent(PlayerBox playerBox)
@@ -385,7 +393,6 @@ public class GameWindow extends JPanel
     public void cancelCardEvent()
     {   if(cardEvent!=null)
         {
-            setTurnPhase(TurnPhase.MAIN_PHASE);
             Card originCard = cardEvent.getOriginCard();
             Card targetCard = cardEvent.getTargetCard();
             PlayerBox targetPlayer = cardEvent.getTargetPlayerBox();
@@ -454,8 +461,6 @@ public class GameWindow extends JPanel
         else
         if(cardEvent.getOriginCard() instanceof ActionCard && cardEvent.getTargetPlayerBox()!=null)
         {
-            setTurnPhase(TurnPhase.DECLARE_BLOCKERS);
-
             if(!isPlayerTurn)
             {
                 gameControlPanel.enableResolveButton(true);
@@ -480,7 +485,6 @@ public class GameWindow extends JPanel
         Card originCard = event.getOriginCard();
         Card targetCard = event.getTargetCard();
         PlayerBox targetPlayer = event.getTargetPlayerBox();
-        Card blockingCard = event.getBlockingCard();
 
         //force the cards to be face up, if it is face down for some reason
         //such as Stealth effect...
@@ -488,13 +492,12 @@ public class GameWindow extends JPanel
         if(targetCard!=null)
             targetCard.setFaceUp(true);
 
-        this.gameControlPanel.increaseTime();
+        //this.gameControlPanel.increaseTime();
 
         //if target card objects dont match whats in players hand due to sending over stream
         //match by ID instead
         if(targetCard!=null && getPlayerLocalCard(targetCard.getCardID())!=null)
             targetCard = getPlayerLocalCard(targetCard.getCardID());
-
 
         if(event.getOriginCard() instanceof SpellCard)
         {
@@ -608,113 +611,6 @@ public class GameWindow extends JPanel
             if(combatTask!=null)
                 timer.schedule(combatTask, 500);
         }
-        else
-        {
-            if(event.getOriginCard() instanceof ActionCard & event.getTargetCard() instanceof ActionCard)
-            {
-                //exchange damage between origin and target
-                ActionCard origin = (ActionCard) originCard;
-                ActionCard target = (ActionCard) targetCard;
-
-                TimerTask originDamageTask = new TimerTask() {
-                    @Override
-                    public void run() {
-                        //drawAnimation("slash",origin,target);
-                        componentAnimateMap.put(origin,"slash");
-                        componentAnimateMap.put(target,"slash");
-
-                        //add heal animation for Gain_Life ability
-                        if(origin.getPower()>=target.getToughness() && target.getActionEffect()== ActionEffect.Gain_Life){
-                                componentAnimateMap.put(target.getPlayArea().playerBox,"heal");
-                        }
-
-                        if(target.getPower()>=origin.getToughness() && origin.getActionEffect()== ActionEffect.Gain_Life){
-                                componentAnimateMap.put(origin.getPlayArea().playerBox,"heal");
-                        }
-
-                        drawAnimations();
-                        target.takeDamage(origin.getPower());
-                        playSound("attackSwing");
-                        origin.takeDamage(target.getPower());
-                        //release current card event
-                        cardEvent = null;
-                    }
-                };
-                timer.schedule(originDamageTask, 500);
-            }
-            else
-            if(event.getOriginCard() instanceof ActionCard & event.getTargetPlayerBox() !=null)
-            {
-                //creature does damage to target player
-                ActionCard origin = (ActionCard) originCard;
-                PlayerBox target = event.getTargetPlayerBox();
-                ActionCard blocker = (ActionCard) event.getBlockingCard();
-
-                final int originPower = origin.getPower();
-                final int blockerPower;
-                final int blockerToughness;
-
-                if(blocker!=null)
-                {
-                    blockerPower = blocker.getPower();
-                    blockerToughness = blocker.getToughness();
-                }
-                else
-                {
-                    blockerPower = 0;
-                    blockerToughness = 0;
-                }
-
-                //if blocker has been declared
-                if(blocker!=null)
-                {
-                    TimerTask originDamageTask = new TimerTask() {
-                        @Override
-                        public void run() {
-
-                            componentAnimateMap.put(origin,"slash");
-                            componentAnimateMap.put(blocker,"slash");
-                            drawAnimations();
-                            //drawAnimation("slash",origin,blocker);
-                            blocker.takeDamage(originPower);
-                            playSound("attackSwing");
-                            origin.takeDamage(blockerPower);
-                            //release current card event
-                            cardEvent = null;
-                        }
-                    };
-                    timer.schedule(originDamageTask, 500);
-                }
-                //if no blocker has been delared
-                else
-                {
-                    TimerTask playerDamageTask = new TimerTask(){
-                        @Override
-                        public void run()
-                        {
-                            //drawAnimation("slash",null,target);
-                            componentAnimateMap.put(target,"slash");
-                            drawAnimations();
-                            playSound("attackSwing");
-
-                            if(originPower-blockerToughness>0)
-                               target.takeDamage(originPower-blockerToughness);
-
-                            //if card event execution reduced player health to 0 or below
-                            if(playerPlayArea.getPlayerBoxPanel().getPlayerHealth()<=0)
-                            {
-                                //if player is <=0 health and opponent is >0
-                                //player loses the game
-                                loseGame();
-                            }
-                            //release current card event
-                            cardEvent = null;
-                        }
-                    };
-                    timer.schedule(playerDamageTask,500);
-                }
-            }
-        }
 
         //AFTER EVENT RESOLVED
         //return card state to normal
@@ -734,14 +630,106 @@ public class GameWindow extends JPanel
         {
             targetPlayer.setIsSelected(false);
         }
-        if(blockingCard!=null)
-        {
-            blockingCard.setIsSelected(false);
-            blockingCard.setIsActivated(true);
-        }
+    }
 
-        //progress turn phase
-        setTurnPhase(TurnPhase.MAIN_PHASE);
+    public void addCardToActionCardStack(ActionCard card, int lane){
+        CardEvent event = new CardEvent(card);
+        event.setLaneNumber(lane);
+        actionCardStack.add(event);
+    }
+
+
+    int combatIterator = 0;
+    public void executeLaneCombat()
+    {
+        //reset the iterator back to 0 - otherwise timer is cancelled
+        combatIterator = 0;
+        //Schedules the specified task for repeated fixed-delay execution (period), beginning after the specified delay (delay)
+        combatTimer = new Timer();
+        TimerTask laneTimerTask = new TimerTask() {
+            @Override
+            public void run()
+            {
+                System.out.println("timer entered");
+                //cancel timer after iterating through all lanes
+                int x = combatIterator;
+                if(combatIterator==Constants.numberOfLanes) {
+                    combatTimer.cancel();
+                    combatTimer.purge();
+                    return;
+                }
+
+                ActionCard[] playerActionCardArray = new ActionCard[2];
+                ActionCard[] opponentActionCardArray = new ActionCard[2];
+                PlayerBox[] playerBoxArray = new PlayerBox[2];
+                playerActionCardArray[0] = (ActionCard) playerPlayArea.getCardPanel().getCards()[x];
+                playerActionCardArray[1] = (ActionCard) opponentsPlayArea.getCardPanel().getCards()[x];
+                opponentActionCardArray[0] = (ActionCard) opponentsPlayArea.getCardPanel().getCards()[x];
+                opponentActionCardArray[1] = (ActionCard) playerPlayArea.getCardPanel().getCards()[x];
+                playerBoxArray[0] = opponentsPlayArea.getPlayerBoxPanel();
+                playerBoxArray[1] = playerPlayArea.getPlayerBoxPanel();
+
+                System.out.println("lane " +x + " --------");
+
+                for(int y=0;y<2;y++)
+                {
+                    System.out.println("    slot "+y);
+                    //determine which index is opponent or player
+                    PlayerBox opponentsPlayerBox = playerBoxArray[y];
+                    ActionCard playerActionCard = playerActionCardArray[y];
+                    ActionCard opponentActionCard = opponentActionCardArray[y];
+
+                    // INSERT CODE TO DETERMINE IF THIS CARD ACTION IS BLOCKED HERE!!!
+                    boolean isBlocked = false;
+                    if(playerActionCard!=null && (
+                        playerActionCard.getActionEffect()==ActionEffect.Mastercut ||
+                        playerActionCard.getActionEffect()==ActionEffect.Cut ||
+                        playerActionCard.getActionEffect()==ActionEffect.Thrust
+                            ))
+                    {
+                        if(opponentActionCard!=null)
+                        {
+                            System.out.println(opponentActionCard.getPower());
+
+                            if(playerActionCard.getActionEffect()==ActionEffect.Cut && opponentActionCard.getActionEffect()==ActionEffect.Parry_Cut){
+                                isBlocked = true;
+                                System.out.println("        Cut was blocked");
+                                //add blocked animation
+                            }
+                            else
+                            if(playerActionCard.getActionEffect()==ActionEffect.Thrust && opponentActionCard.getActionEffect()==ActionEffect.Parry_Thrust){
+                                isBlocked = true;
+                                System.out.println("        Thrust was blocked");
+                                //add blocked animation
+                            }
+                            else
+                            if(opponentActionCard.getActionEffect()==ActionEffect.Mastercut){
+                                isBlocked = true;
+                                System.out.println("        Blocked by mastercut");
+                                //add blocked animation
+                            }
+                        }
+                        if(!isBlocked)
+                        {
+                            //if player slot is not empty
+                            //and the card is a cut of thrust
+                            //execute the card
+                            playSound("attackSwing");
+                            playerActionCard.setIsActivated(true);
+                            opponentsPlayerBox.takeDamage(playerActionCard.getPower());
+                            componentAnimateMap.put(opponentsPlayerBox,"slash");
+                            System.out.println("        card damage from " + playerActionCard.getPower());
+                        }
+                        else
+                            System.out.println("        Blocked!");
+
+                    }
+                }
+                drawAnimations();
+                combatIterator++;
+            }
+        };
+        combatTimer.schedule(laneTimerTask,Constants.laneCombatDelay,Constants.laneCombatDelay);
     }
 
     public void hideDrawLineGlassPane()
@@ -774,59 +762,45 @@ public class GameWindow extends JPanel
     public void passTurn()
     {
         playSound("passTurn");
-        gameControlPanel.setTurnPhaseLabelText(turnPhase);
         gameControlPanel.startTurnTimer();
         gameControlPanel.setNotificationLabel("");
-
-        if(isPlayerTurn)
-        {
-            isPlayerTurn=false;
-            this.playerPlayArea.setIsPlayerTurn(isPlayerTurn);
-            this.opponentsPlayArea.setIsPlayerTurn(true);
-            this.gameControlPanel.setIsPlayerTurn(isPlayerTurn);
-
-            Message message = new Message();
-            message.setText("OPPONENT_PASS_TURN");
-            sendMessage(message,null);
-        }
-        else if(!isPlayerTurn)
-        {
-            //it becomes the players turn
-            isPlayerTurn=true;
-
-            this.playerPlayArea.setIsPlayerTurn(isPlayerTurn);
-            this.opponentsPlayArea.setIsPlayerTurn(false);
-            this.gameControlPanel.setIsPlayerTurn(isPlayerTurn);
-
-            //deactivate all activated cards in the players play area
-            playerPlayArea.unActivateAllCards();
-
-            //draw card at the start of the turn - except the first turn of the game
-            if(turnCycleIncrementor>0)
-                playerDeck.drawCard(true);
-        }
-
-        //replenish resources back to turn amount
-        resourcePanel.resetResources(turnNumber);
-
-        //highlight playable cards
-        playerHand.highlightPlayableCards();
 
         //cancel any half created events
         if(cardEvent!=null)
             cancelCardEvent();
 
         //progress to next turn phase
-        setTurnPhase(TurnPhase.MAIN_PHASE);
-        gameControlPanel.setTurnPhaseLabelText(turnPhase);
-
-        //increment turn number
-        turnCycleIncrementor++;
-        if(turnCycleIncrementor==(turnNumber*2))
-        {
-            turnNumber++;
+        if(getTurnPhase()==null) {
+            setTurnPhase(TurnPhase.MAIN_PHASE);
+            //replenish resources back to turn amount
+            playerResourcePanel.resetResources();
+            opponentsResourcePanel.resetResources();
+            playerHand.highlightPlayableCards();
+        }
+        else if(getTurnPhase()==TurnPhase.MAIN_PHASE) {
+            setTurnPhase(TurnPhase.COMBAT_PHASE);
+            playerHand.unHighlightPlayableCards();
+            //executeActionCardStack();
+            executeLaneCombat();
+        }
+        else if (getTurnPhase()==TurnPhase.COMBAT_PHASE) {
+            setTurnPhase(TurnPhase.END_PHASE);
+            playerPlayArea.clearCards();
+            opponentsPlayArea.clearCards();
+            playerHand.discardAllCards();
+            opponentsHand.discardAllCards();
+            playerHand.dealHand();
+            opponentsHand.dealHand();
+        }
+        else if (getTurnPhase()==TurnPhase.END_PHASE) {
+            setTurnPhase(TurnPhase.MAIN_PHASE);
+            //replenish resources back to turn amount
+            playerResourcePanel.resetResources();
+            opponentsResourcePanel.resetResources();
+            playerHand.highlightPlayableCards();
         }
 
+        gameControlPanel.setTurnPhaseLabelText(turnPhase);
     }
 
     public void passOnBlocking()
@@ -891,7 +865,7 @@ public class GameWindow extends JPanel
         }
     }
 
-    public void recieveMessage(Message message)
+    public void receiveMessage(Message message)
     {
         Card messageCard = null;
         if(message.getJsonCard()!=null && !message.getText().equals("OPPONENTS_DECKLIST"))
@@ -1001,11 +975,6 @@ public class GameWindow extends JPanel
         }
     }
 
-    public int getTurnNumber()
-    {
-        return turnNumber;
-    }
-
     public void disablePlay()
     {
         //disable interaction with play area
@@ -1028,25 +997,6 @@ public class GameWindow extends JPanel
     {
         turnPhase = phase;
         gameControlPanel.setTurnPhaseLabelText(turnPhase);
-
-        if(phase==TurnPhase.MAIN_PHASE)
-        {
-            gameControlPanel.setResolveButtonText("Resolve");
-            gameControlPanel.enableResolveButton(false);
-        }
-        else
-        if(phase==TurnPhase.COMBAT_PHASE)
-        {
-
-        }
-        else
-        if(phase==TurnPhase.DECLARE_BLOCKERS)
-        {
-            if(isPlayerTurn)
-                gameControlPanel.enableResolveButton(false);
-            else
-                gameControlPanel.enableResolveButton(true);
-        }
     }
 
     public void loseGame()

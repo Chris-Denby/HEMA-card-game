@@ -5,21 +5,9 @@
  */
 package Interface;
 
-import java.awt.BasicStroke;
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.Image;
-import static java.awt.Image.SCALE_DEFAULT;
-import java.awt.RenderingHints;
+import javax.swing.*;
+import java.awt.*;
 import java.util.ArrayList;
-import java.util.Timer;
-import java.util.TimerTask;
-import javax.swing.BoxLayout;
-import javax.swing.JPanel;
 
 /**
  *
@@ -37,8 +25,10 @@ public class ResourcePanel extends JPanel
         this.setBackground(Color.WHITE);
         this.width = Math.round(width/16);
         //set layout to add items vertically from top to bottom
-        setLayout(new BoxLayout(this, BoxLayout.PAGE_AXIS));
-        this.setPreferredSize(new Dimension(width,height));   
+        setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
+        this.setPreferredSize(new Dimension(width,height));
+        resetResources();
+
     }
     
     public int getAmount()
@@ -65,12 +55,9 @@ public class ResourcePanel extends JPanel
         }
     }
     
-    public void resetResources(int turnNumber)
-    {     
-        if(turnNumber>Constants.maxResourceAmount)
-            turnNumber = Constants.maxResourceAmount;
-        //add resources back - increasing amount back to current turn amount
-        for(int x=resources.size();x<turnNumber;x++)
+    public void resetResources()
+    {
+        for(int x=resources.size();x<Constants.maxResourceAmount;x++)
         {
             Resource r = new Resource();
             resources.add(r);

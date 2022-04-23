@@ -71,9 +71,11 @@ public class Deck extends JLayeredPane
         if(isOpponents)
             card.setCardLocation(CardLocation.OPPONENT_HAND);
             card.setFaceUp(false);
-        
+
+         /**
         if(card instanceof ActionCard)
             ((ActionCard)card).setCardValue();
+         **/
         
         cardsInDeck.add(card);
         this.add(card,layer);

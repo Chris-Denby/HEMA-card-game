@@ -145,7 +145,7 @@ public class TCPServer
                     
                     if(m!=null)
                     {
-                        gameWindow.recieveMessage(m);
+                        gameWindow.receiveMessage(m);
                     }
                 }//end of while
             }// end of try

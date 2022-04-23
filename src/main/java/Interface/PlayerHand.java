@@ -14,8 +14,10 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.ListIterator;
 
 /**
  *
@@ -80,16 +82,9 @@ public class PlayerHand extends JLayeredPane
                 {
                     if(e.getButton()==MouseEvent.BUTTON1)
                     {
-                        if(gameWindow.getIsPlayerTurn() && card.getCardLocation()==CardLocation.PLAYER_HAND)
+                        if(gameWindow.getTurnPhase()==TurnPhase.MAIN_PHASE && card.getCardLocation()==CardLocation.PLAYER_HAND)
                         {
-                            if(gameWindow.getTurnPhase()==TurnPhase.END_PHASE)
-                            {
-                                discardCard(card.getCardID());
-                                if(checkHandSizeForEndTurn())
-                                    gameWindow.passTurn();     
-                            }
-                            else
-                                playCard(card.getCardID(),false);
+                            playCard(card.getCardID(),false);
                         }
                     }
                     if(e.getButton()==MouseEvent.BUTTON3)
@@ -113,17 +108,26 @@ public class PlayerHand extends JLayeredPane
     public List<Card> getCardsInHand()
     {
         return cardsInHandMap.values().stream().toList();
-        //return cardsInHand;
     }
 
-    
+    public void discardAllCards()
+    {
+
+        for(Card c:getCardsInHand())
+        {
+            discardCard(c.getCardID());
+        }
+
+    }
+
     public void discardCard(int cardID)
     {
         Card discard = cardsInHandMap.get(cardID);
         gameWindow.playSound("discardCard");
         playArea.addToDiscardPile(discard);
-        System.out.println("discard card - " + discard.getCardID());
-            
+
+
+        /**
             if(!isOpponents)
             {
                 Message message = new Message();
@@ -132,7 +136,9 @@ public class PlayerHand extends JLayeredPane
             }
         //remove card after sending hte message
         //otherwise theres no reference to the card anymore
+         **/
         removeCard(discard);
+
     }
     
     public void removeCard(Card card)
@@ -171,25 +177,37 @@ public class PlayerHand extends JLayeredPane
             revalidate();
         });
     }
-    
-    public void highlightPlayableCards()
+
+    public void unHighlightPlayableCards()
     {
         cardsInHandMap.forEach((cardID,card)->{
-            if(card.getPlayCost()<=resourcePanel.getAmount() && gameWindow.getIsPlayerTurn())
-                card.setIsPlayable(true);
-            else if(card.getPlayCost()>resourcePanel.getAmount() | !gameWindow.getIsPlayerTurn() )
-                card.setIsPlayable(false);
+            card.setIsPlayable(false);
         });
     }
-    
+    public void highlightPlayableCards()
+    {
+        cardsInHandMap.forEach((cardID,card)->
+        {
+            if(gameWindow.getTurnPhase()==TurnPhase.MAIN_PHASE)
+            {
+                if(card.getPlayCost()<=resourcePanel.getAmount())
+                {
+                    card.setIsPlayable(true);
+                }
+                else
+                    card.setIsPlayable(false);
+            }
+        });
+    }
+
     public void playCard(int cardID, boolean isOpponent)
     {
         Card card = cardsInHandMap.get(cardID);
         
-        //if the played card is a creature
+        //if the played card is an action
         //and the maxmimum num of cards are in play
         //dont allow the card to be played
-        if(card instanceof ActionCard && playArea.getNumCardsInPlayArea()==Constants.maxCaradsInPlayArea){
+        if(card instanceof ActionCard && playArea.getCardPanel().checkIfFull()){
             gameWindow.playSound("playAreaFull");
             return;
         }
@@ -209,7 +227,8 @@ public class PlayerHand extends JLayeredPane
                 card.setCardLocation(CardLocation.OPPONENT_HAND);
 
             resourcePanel.useResources(card.getPlayCost());
-            this.gameWindow.getGameControlPanel().increaseTime();
+
+            //this.gameWindow.getGameControlPanel().increaseTime();
 
             //***************
             //send message to connected server/client

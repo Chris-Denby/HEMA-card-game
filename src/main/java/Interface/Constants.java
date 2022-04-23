@@ -18,7 +18,7 @@ public class Constants
     public static final int maxHandSize = 5;
     public static final int maxResourceAmount = 5;
     public static final int defaultPlayerHealth = 5;
-    public static final int turnTimeLimit = 30;
+    public static final int turnTimeLimit = 10;
     public static final int discardTimeLimit = 10;
     public static final int maxCaradsInPlayArea = 14;
     public static final int buffDistance = 2;
@@ -32,7 +32,8 @@ public class Constants
     public static final Color uncommonColor = new Color(0,112,221,255);
     public static final Color rareColor = new Color(163,53,238,255);
     public static final Color mythicColor = new Color(255,128,0,255);
-    public static final int numCardSlots = 3;
+    public static final int numberOfLanes = 3;
+    public static final int laneCombatDelay = 1000;
 
     public static enum WeaponType
     {
@@ -56,10 +57,9 @@ public class Constants
     
     public static enum TurnPhase
     {
-        UPKEEP_PHASE,
         MAIN_PHASE,
         COMBAT_PHASE,
-        DECLARE_BLOCKERS,        
+        DECLARE_BLOCKERS,
         END_PHASE
     }
     
@@ -72,13 +72,12 @@ public class Constants
     
     public static enum ActionEffect
     {
-        NONE,
-        Stealth, //card comes in face down to opponent until used
-        Gain_Life,
-        Taunt,
-        Buff_Power;
+        //Stealth, //card comes in face down to opponent until used
+        Mastercut,
+        Cut,
+        Thrust,
+        Parry_Cut,
+        Parry_Thrust,
+        Combo;
     }
-    
-    
-    
 }

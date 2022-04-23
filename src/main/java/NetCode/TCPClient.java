@@ -9,12 +9,9 @@
 package NetCode;
 import Interface.GameWindow;
 import Interface.Message;
-import Interface.Message;
+
 import java.net.*;
 import java.io.*;
-import java.util.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 
 public class TCPClient 
@@ -117,7 +114,7 @@ public class TCPClient
                                         
                     if(m!=null)
                     {
-                        gameWindow.recieveMessage(m);
+                        gameWindow.receiveMessage(m);
                     } 
                 }//end of while
             }// end of try

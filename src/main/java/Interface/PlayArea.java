@@ -15,7 +15,6 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.util.*;
 import java.util.Timer;
-import java.util.function.BiConsumer;
 import javax.swing.*;
 import javax.swing.border.LineBorder;
 import java.util.concurrent.ThreadLocalRandom;
@@ -31,16 +30,15 @@ public class PlayArea extends JPanel
     boolean isOpponent = false;
     int width;
     int height;
-    private boolean isPlayerTurn;
     JPanel playerSubPanel;
     PlayerBox playerBox;
-    CardSubPanelWithSlots cardSubPanel;
-
+    CardSubPanelWithLanes cardSubPanel;
 
     private LinkedHashMap<Integer,Card> cardsInPlay = new LinkedHashMap<Integer,Card>();
     private ArrayList<Card> cardList;
     private Deque<CardEvent> cardEventStack = new ArrayDeque<CardEvent>();
     ArrayList<Card> discardPile = new ArrayList<Card>();
+
  
     public PlayArea(int containerWidth, int containerHeight, GameWindow window, boolean isOpponent)
     {
@@ -53,7 +51,7 @@ public class PlayArea extends JPanel
         this.setPreferredSize(new Dimension(width,height));
         this.setOpaque(false);
 
-        cardSubPanel = new CardSubPanelWithSlots();
+        cardSubPanel = new CardSubPanelWithLanes();
         Dimension cardSubPanelDimension = new Dimension(width,Math.round(height/10)*6);
         cardSubPanel.setPreferredSize(cardSubPanelDimension);
         cardSubPanel.setSize(cardSubPanelDimension);
@@ -121,29 +119,15 @@ public class PlayArea extends JPanel
         return gameWindow;
     }
     
-    public int getNumCardsInPlayArea()
-    {
-        return cardsInPlay.size();
-    }
-    
     public PlayerBox getPlayerBoxPanel()
     {
         return playerBox;
-    }
-    
-    public void setIsPlayerTurn(boolean is)
-    {
-        isPlayerTurn = is;
-        if(isPlayerTurn)
-            unActivateAllCards();
     }
 
     public boolean addCard(Card card)
     {
         if(card instanceof ActionCard && cardSubPanel.checkIfFull())
             return false;
-
-
 
         gameWindow.playSound("playCard");
         //set card location
@@ -167,6 +151,10 @@ public class PlayArea extends JPanel
             weaponInPlay = (WeaponCard) card;
             playerSubPanel.add(card);
         }
+        else if(card instanceof SpellCard)
+        {
+            playerSubPanel.add(card);
+        }
         else{
             cardSubPanel.addCard(card);
         }
@@ -177,7 +165,8 @@ public class PlayArea extends JPanel
         card.addMouseListener(new CardMouseListener(card,this));
 
         cardsInPlay.put(card.getCardID(), card);
-        triggerETBEffect(card);
+        triggerETBEffect((ActionCard) card);
+
 
         if(card instanceof SpellCard)
         {
@@ -201,9 +190,9 @@ public class PlayArea extends JPanel
     
     public void removeCard(Card card)
     {
-        System.out.println("PlayArea - remove card ("+card.getName()+")");
         playerSubPanel.remove(cardsInPlay.get(card.getCardID()));
         cardSubPanel.removeCard(cardsInPlay.get(card.getCardID()));
+        card.setIsActivated(false);
         addToDiscardPile(card);
         cardsInPlay.remove(card.getCardID());
         revalidate();
@@ -218,7 +207,13 @@ public class PlayArea extends JPanel
     public void selectCard(Card card)
     {
         gameWindow.playSound("selectCard");
+        System.out.println("card selected");
         gameWindow.createCardEvent(card);   
+    }
+
+    public void clearCards()
+    {
+        cardSubPanel.clearLanes();
     }
     
     public HashMap<Integer,Card> getCardsInPlayArea()
@@ -226,7 +221,7 @@ public class PlayArea extends JPanel
         return cardsInPlay;
     }
     
-    public void triggerETBEffect(Card card)
+    public void triggerETBEffect(ActionCard card)
     {
         if(card.getActionEffect()==null)
             return;
@@ -234,14 +229,14 @@ public class PlayArea extends JPanel
         //String effectName = card.getETBeffect().toString().split("_")[0];
         switch(card.getActionEffect())
         {
-            case Taunt:
+            case Mastercut:
                 //this is a passive ability
                 //taunt works by the attacking player checking if taunt creature is in play
                 //with this classes checkForTauntCreature() method
                 //card.showTauntSymbol();
             break;
                 
-            case Buff_Power:
+            case Combo:
                 gameWindow.playSound("buffSound");
 
                 cardList = new ArrayList<Card>(cardsInPlay.values());
@@ -263,15 +258,17 @@ public class PlayArea extends JPanel
                 }
                 gameWindow.drawAnimations();
             break;
-            
+
+            /**
             case Stealth:
                 if(isOpponent)
                     card.setFaceUp(false);
             break;
+             **/
         }        
     }
     
-    public void triggerDeathFffect(Card card)
+    public void triggerDeathFffect(ActionCard card)
     {        
         //remove ETB buffs or trigger death effects
         if(card.getActionEffect()!=null)
@@ -279,15 +276,10 @@ public class PlayArea extends JPanel
             //String ETBeffectName = card.getETBeffect().toString().split("_")[0];
             switch(card.getActionEffect())
             {
-                case Gain_Life:
-                    gameWindow.playSound("gainLife");
-                    this.playerBox.gainLife(card.getPlayCost());
-                break;
-                
-                case Taunt:
+                case Mastercut:
                 break;
 
-                case Buff_Power:
+                case Combo:
                     gameWindow.playSound("debuffSound");
                     cardList = new ArrayList<Card>(cardsInPlay.values());
                     int buffValue = Math.round(card.getPlayCost()/Constants.buffModifier);
@@ -316,7 +308,7 @@ public class PlayArea extends JPanel
     {
         private Container container;
         private Card card;
-        
+
         public CardMouseListener(Card card, Container container)
         {
             this.card = card;
@@ -324,49 +316,24 @@ public class PlayArea extends JPanel
         }
 
         @Override
-        public void mouseClicked(MouseEvent e) 
-        {
+        public void mouseClicked(MouseEvent e){
 
         }
-
         @Override
-        public void mousePressed(MouseEvent e) 
-        {
+        public void mousePressed(MouseEvent e){
         }
-
         @Override
+
         public void mouseReleased(MouseEvent e) {
 
             System.out.println(card.getWidth() +", " + card.getHeight());
-            //only allow mouse events while its the players turn, or if its the declare blockers phase
-            if(e.getButton()==MouseEvent.BUTTON1 && gameWindow.getTurnPhase()==TurnPhase.END_PHASE)
-                return;
-                       
-            if(e.getButton()==MouseEvent.BUTTON1 && !gameWindow.getIsPlayerTurn() && gameWindow.getTurnPhase()==TurnPhase.DECLARE_BLOCKERS && !card.getIsActivated() && card.getCardLocation()==CardLocation.PLAYER_PLAY_AREA)
+
+            //only allow mouse events while:
+            // its the main phase
+            if(e.getButton()==MouseEvent.BUTTON1 && gameWindow.getTurnPhase()==TurnPhase.MAIN_PHASE)
             {
                 //if mouse 1 clicked
-                //and is not your turn
-                //and its declare blockers turn phase
-                //and card is not already activated
-                //add the clicked card is in your play area
-                selectCard(card);
-            }
-            else
-            if(e.getButton()==MouseEvent.BUTTON1 && gameWindow.getIsPlayerTurn() && gameWindow.getTurnPhase()!=TurnPhase.DECLARE_BLOCKERS)
-            {
-                //if mouse 1 clicked
-                //and it is your turn
-                //and the turn phase is NOT declare blockers
-                selectCard(card);    
-            }
-            else
-            if(e.getButton()==MouseEvent.BUTTON1 && gameWindow.getIsPlayerTurn() && gameWindow.getTurnPhase()==TurnPhase.COMBAT_PHASE)
-            {
-                //if mouse 1 clicked
-                //and it is your turn
-                //and its combat phase
-                selectCard(card);
-                
+                //selectCard(card);
             }
             else
             if(e.getButton()==MouseEvent.BUTTON3)
@@ -436,14 +403,7 @@ public class PlayArea extends JPanel
         }
         
     }
-    
-    public void unActivateAllCards()
-    {
-        BiConsumer <Integer,Card> consumer = (i,card)->{card.setIsActivated(false);};
-        cardsInPlay.forEach(consumer);
-        
-    }
-    
+
     public boolean checkForAvailableBlockers()
     {
         //returns true if any cards in play area are available to block
@@ -470,19 +430,25 @@ public class PlayArea extends JPanel
         {
             //for each creature card player has in play
             //if a creature without taunt is present, mark it as not attackable
-            if(c instanceof ActionCard && ((ActionCard)c).getActionEffect()== ActionEffect.Taunt)
+            if(c instanceof ActionCard && ((ActionCard)c).getActionEffect()== ActionEffect.Mastercut)
                 return true;
         }
         return false;
     }
 
-    private class CardSubPanelWithSlots extends JPanel
+    public CardSubPanelWithLanes getCardPanel()
+    {
+        return cardSubPanel;
+    }
+
+    public class CardSubPanelWithLanes extends JPanel
     {
         GridLayout gridLayout = new GridLayout(1,3,30,30);
         JPanel innerPanel = new JPanel();
-        JPanel[] cardSlots = new JPanel[Constants.numCardSlots];
+        JPanel[] cardLanes = new JPanel[Constants.numberOfLanes];
+        Card[] cardsInPlayArray = new Card[Constants.numberOfLanes];
 
-        public CardSubPanelWithSlots()
+        private CardSubPanelWithLanes()
         {
             this.setOpaque(false);
             this.setLayout(new BoxLayout(this,BoxLayout.Y_AXIS));
@@ -496,62 +462,80 @@ public class PlayArea extends JPanel
             this.add(innerPanel);
 
             //set up placeholder panels
-            for(int x=0;x<Constants.numCardSlots;x++)
+            for(int x = 0; x<Constants.numberOfLanes; x++)
             {
                 JPanel cardSlot = new JPanel();
                 innerPanel.add(cardSlot);
-                cardSlots[x] = cardSlot;
+                cardLanes[x] = cardSlot;
                 cardSlot.setOpaque(false);
-                SlotPlaceHolderPanel panel = new SlotPlaceHolderPanel(x+1);
-                cardSlots[x].add(panel);
+                LanePlaceHolderPanel panel = new LanePlaceHolderPanel(x+1);
+                cardLanes[x].add(panel);
+            }
+        }
+
+        public void clearLanes()
+        {
+            for(int x = 0; x< cardLanes.length; x++)
+            {
+                cardLanes[x].removeAll();
+                cardsInPlayArray[x] = null;
+                LanePlaceHolderPanel panel = new LanePlaceHolderPanel(x+1);
+                cardLanes[x].add(panel);
             }
         }
 
         public boolean checkIfFull()
         {
-            int cardsInSlots = 0;
-            for(JPanel c:cardSlots){
+            int cardsInLanes = 0;
+            for(JPanel c: cardLanes){
                 if(c.getComponentCount()>0 && c.getComponent(0) instanceof Card)
-                    cardsInSlots++;
+                    cardsInLanes++;
             }
-            if(cardsInSlots==Constants.numCardSlots)
+            if(cardsInLanes==Constants.numberOfLanes)
                 return true;
             else
                 return false;
         }
 
-        public void addCard(Card card)
+        private void addCard(Card card)
         {
             //add the card to the left most free slot
-            for(int x=0;x<Constants.numCardSlots;x++)
+            for(int x = 0; x<Constants.numberOfLanes; x++)
             {
-                if(!(cardSlots[x].getComponent(0) instanceof Card)){
-                    cardSlots[x].removeAll();
-                    cardSlots[x].add(card);
+                if(!(cardLanes[x].getComponent(0) instanceof Card)){
+                    cardLanes[x].removeAll();
+                    cardLanes[x].add(card);
+                    cardsInPlayArray[x] = card;
                     return;
                 }
             }
         }
 
-        public void removeCard(Card card)
+        private void removeCard(Card card)
         {
             System.out.println("card sub panel - remove card ("+card.getName()+") cardID: "+card.getCardID());
-            for(int x=0;x<cardSlots.length;x++)
+            for(int x = 0; x< cardLanes.length; x++)
             {
-                if(cardSlots[x].getComponentCount()>0 && cardSlots[x].getComponent(0) instanceof Card && ((Card) cardSlots[x].getComponent(0)).getCardID()==card.getCardID())
+                if(cardLanes[x].getComponentCount()>0 && cardLanes[x].getComponent(0) instanceof Card && ((Card) cardLanes[x].getComponent(0)).getCardID()==card.getCardID())
                 {
                     System.out.println("found card to remove");
-                    cardSlots[x].removeAll();
-                    SlotPlaceHolderPanel panel = new SlotPlaceHolderPanel(x+1);
-                    cardSlots[x].add(panel);
+                    cardLanes[x].removeAll();
+                    cardsInPlayArray[x] = null;
+                    LanePlaceHolderPanel panel = new LanePlaceHolderPanel(x+1);
+                    cardLanes[x].add(panel);
                 }
             }
         }
 
-        public class SlotPlaceHolderPanel extends JPanel
+        public Card[] getCards()
+        {
+            return cardsInPlayArray;
+        }
+
+        private class LanePlaceHolderPanel extends JPanel
         {
             int slotNumber;
-            public SlotPlaceHolderPanel(int slotNumber)
+            public LanePlaceHolderPanel(int slotNumber)
             {
                 super();
                 this.slotNumber = slotNumber;

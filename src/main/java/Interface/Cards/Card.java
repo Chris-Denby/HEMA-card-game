@@ -69,7 +69,7 @@ public class Card extends JPanel implements Serializable, Cloneable
     Font bodyFont = new Font("Arial",Font.PLAIN,bodyFontSize);
     private boolean isSelected = false;
     int imageID;
-    private ActionEffect actionEffect = ActionEffect.NONE;
+
     private boolean isPlayable;
     JLabel cardNameLabel;
     JPanel topPanel;
@@ -156,18 +156,6 @@ public class Card extends JPanel implements Serializable, Cloneable
         return playerHand;
     }
 
-    public ActionEffect getActionEffect()
-    {
-        return this.actionEffect;
-    }
-
-    public void setActionEffect(ActionEffect effect) {
-        this.actionEffect = effect;
-        if(this.getActionEffect()!= ActionEffect.NONE){
-            setBodyText(this.getActionEffect().toString());
-            abilityLabel.setText(this.getActionEffect().toString().replace('_', ' '));
-            }
-    }
     
     public void setCardBack(Image img)
     {
@@ -359,8 +347,6 @@ public class Card extends JPanel implements Serializable, Cloneable
     
     public void setBodyText(String text)    
     {
-                
-
         SimpleAttributeSet attribs = new SimpleAttributeSet();
         StyleConstants.setAlignment(attribs, StyleConstants.ALIGN_CENTER);
         StyleConstants.setFontFamily(attribs, "SansSerif");
@@ -438,12 +424,13 @@ public class Card extends JPanel implements Serializable, Cloneable
             textBox.setParagraphAttributes(attribs, true);
             
             
-            String effectString = actionEffect.toString().replace('_', ' ');
+            //String effectString = actionEffect.toString().replace('_', ' ');
             String effectDescription;
             StringBuilder sb = new StringBuilder();
             
             //ETB EFFECT
-            if(actionEffect == ActionEffect.Buff_Power)
+            /**
+            if(actionEffect == ActionEffect.Combo)
             {
                 int buffValue = Math.round(getPlayCost()/Constants.buffModifier);
                 if(buffValue<1)
@@ -457,7 +444,7 @@ public class Card extends JPanel implements Serializable, Cloneable
                 sb.append("\n");
 
             }
-            else if(actionEffect == ActionEffect.Taunt)
+            else if(actionEffect == ActionEffect.Mastercut)
             {
                 effectDescription = "You cannot target minions without taunt while in play";
                 sb.append(effectString);
@@ -468,6 +455,7 @@ public class Card extends JPanel implements Serializable, Cloneable
             }
 
             //DEATH EFFECT
+            /**
             if(actionEffect == ActionEffect.Gain_Life)
             {
                 effectDescription = "When destroyed, gain " + getPlayCost() + " life";
@@ -475,13 +463,7 @@ public class Card extends JPanel implements Serializable, Cloneable
                 sb.append("\n");
                 sb.append(effectDescription);
             }
-            
-            if(actionEffect == ActionEffect.NONE && actionEffect == ActionEffect.NONE)
-            {
-                sb.append("Basic Minion");
-                sb.append("\n");
-                sb.append("This minion has no abilities");    
-            }
+            **/
             textBox.setText(sb.toString());
         }
     }

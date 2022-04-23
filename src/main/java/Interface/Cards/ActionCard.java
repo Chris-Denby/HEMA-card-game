@@ -32,7 +32,7 @@ public class ActionCard extends Card
     private boolean isBuffed = false;
     private int buffedBy = 0;
     private Constants.WeaponType weaponType = null;
-    
+    private ActionEffect actionEffect = ActionEffect.Mastercut; //replaced on creation
     
     public ActionCard(String cardName, int imageID)
     {
@@ -63,6 +63,17 @@ public class ActionCard extends Card
         bodyBox.add(powerLabel);
         bodyBox.add(statDivider);
         bodyBox.add(toughnessLabel);     
+    }
+
+    public void setActionEffect(ActionEffect effect) {
+        this.actionEffect = effect;
+         setBodyText(this.getActionEffect().toString());
+         abilityLabel.setText(this.getActionEffect().toString().replace('_', ' '));
+    }
+
+    public ActionEffect getActionEffect()
+    {
+        return this.actionEffect;
     }
 
     public Constants.WeaponType getWeaponType() {
@@ -173,9 +184,10 @@ public class ActionCard extends Card
         //set picture box
         return clone;
     }
-    
+
     public void setCardValue()
     {
+        /**
         //determine card value
         /**
         max card value = 
@@ -184,20 +196,17 @@ public class ActionCard extends Card
         1 ETB
         1 DE
         = 16
-        **/
+
 
         int cardValue = power + toughness;
-        if(getActionEffect()!= ActionEffect.NONE)
-        cardValue++;
-        
         int borderStroke = 1;
         this.cardValue = cardValue;
         LineBorder border;
         Color borderColor = Constants.commonColor;
-        
+
         if(getActionEffect()!= ActionEffect.NONE)
             borderColor = Constants.uncommonColor;
-        
+
         if((power+toughness)>Constants.maxResourceAmount-3 && getActionEffect()!= ActionEffect.NONE)
             borderColor = Constants.rareColor;
         
@@ -211,6 +220,7 @@ public class ActionCard extends Card
         }
         
         cardNameLabel.setForeground(borderColor);
+        **/
     }
     
 

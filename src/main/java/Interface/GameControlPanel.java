@@ -72,38 +72,7 @@ public class GameControlPanel extends JPanel
         this.add(notificationLabel);
         this.add(turnTimeLabel);
         this.add(resignButton);
-        
-        resolveButton.setEnabled(false);
-        
-        resolveButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) 
-            {
-                if(gameWindow.getTurnPhase()==TurnPhase.MAIN_PHASE)
-                {
-                    //do nothing on main phase                    
-                }
-                else
-                if(gameWindow.getIsPlayerTurn() && gameWindow.getTurnPhase()==TurnPhase.COMBAT_PHASE)
-                {
-                    gameWindow.requestResolveCombat();  
-                }
-                else
-                if(!gameWindow.getIsPlayerTurn() && gameWindow.getTurnPhase()==TurnPhase.DECLARE_BLOCKERS)
-                {
-                    gameWindow.passOnBlocking();
-                }
-            }
-        });
-        
-        passTurnButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) 
-            {
-                passTurnButtonAction();
-            }
-        });
-        
+
         resignButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) 
@@ -127,24 +96,7 @@ public class GameControlPanel extends JPanel
     {
        turnLabel.setText(text);
     }  
-    
-    public void setIsPlayerTurn(boolean is)
-    {
-        this.isPlayerTurn = is;
-        if(isPlayerTurn)
-        {
-            turnLabel.setText("YOUR\nTURN");
-        }
-        else
-        {
-            turnLabel.setText("OPPONENTS\nTURN");           
-        }
-        
-        passTurnButton.setEnabled(isPlayerTurn);
-        resolveButton.setEnabled(isPlayerTurn);
-        turnNumberLabel.setText(gameWindow.getTurnNumber()+"");
-    }
-    
+
     public void setTurnPhaseLabelText(TurnPhase phase)
     {
         turnPhaseLabel.setText(phase+"");
@@ -175,16 +127,6 @@ public class GameControlPanel extends JPanel
          resolveButton.setEnabled(false);
          
         
-    }
-
-    private void passTurnButtonAction()
-    {
-        if(gameWindow.getPlayerHand().checkHandSizeForEndTurn()) {
-            gameWindow.passTurn();
-        }
-        else {
-            startDiscardTimer();
-        }
     }
 
     public void startTurnTimer()
@@ -218,8 +160,13 @@ public class GameControlPanel extends JPanel
 
                 if(turnTimeLimit==0)
                 {
-                    if(gameWindow.getIsPlayerTurn())
-                        passTurnButtonAction();
+                    //only the server initiates turn changes
+                    if(gameWindow.isNetServer()) {
+                        gameWindow.passTurn();
+                        Message message = new Message();
+                        message.setText("OPPONENT_PASS_TURN");
+                        gameWindow.sendMessage(message,null);
+                    }
                 }
             }
         };
