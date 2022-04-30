@@ -20,6 +20,7 @@ public class Message implements Serializable
     private String text;
     private String reply;
     private JSONObject jsonCard;
+    private int cardID;
 
     public Message()
     {
@@ -58,7 +59,13 @@ public class Message implements Serializable
     public void setJsonCard(JSONObject jsonCard) {
         this.jsonCard = jsonCard;
     }
-        
-        
-  }
+
+     public int getCardID() {
+         return cardID;
+     }
+
+     public void setCardID(int cardID) {
+         this.cardID = cardID;
+     }
+ }
 

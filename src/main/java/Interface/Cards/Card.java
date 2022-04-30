@@ -336,7 +336,8 @@ public class Card extends JPanel implements Serializable, Cloneable
     
     public void removeFromPlayArea()
     {
-        playArea.removeCard(this);
+        if(playArea!=null)
+            playArea.removeCard(this);
     }
     
     public void setImage(Image img)
@@ -481,10 +482,9 @@ public class Card extends JPanel implements Serializable, Cloneable
        
         //draw shadow
         if(dropShadow){
-
             graphics.setColor(shadowColor);
             graphics.fillRoundRect(shadowOffset,shadowOffset,width-strokeSize-shadowOffset,height-strokeSize-shadowOffset,arcSize,arcSize);
-        } 
+        }
         
         //draw inside
         graphics.setColor(backgroundColor);
@@ -495,7 +495,8 @@ public class Card extends JPanel implements Serializable, Cloneable
         graphics.setStroke(new BasicStroke(strokeSize));
         graphics.drawRoundRect(0,0,width-shadowGap,height-shadowGap,arcSize,arcSize);
     }
-    
+
+    /**
     @Override
     public boolean equals(Object object)
     {
@@ -508,6 +509,7 @@ public class Card extends JPanel implements Serializable, Cloneable
         }
         return false;
     }
+    **/
         
     public CardLocation getCardLocation()
     {

@@ -135,11 +135,12 @@ public class GameControlPanel extends JPanel
         if(turnTimerTask!=null) {
             turnTimerTask.cancel();
         }
-        if(discardTask!=null){
-            discardTask.cancel();
-        }
 
         turnTimeLimit = Constants.turnTimeLimit;
+        if(gameWindow.getTurnPhase()==TurnPhase.END_PHASE)
+        {
+            turnTimeLimit = 3;
+        }
         turnTimeLabel.setText(turnTimeLimit+"");
         turnTimeLabel.setForeground(Color.BLACK);
 

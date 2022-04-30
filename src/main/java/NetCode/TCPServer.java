@@ -93,7 +93,7 @@ public class TCPServer
         try
         {
             //send connection handshake to check if server responds
-            System.out.println("Server sending message [" + message.getText() + "] to client");
+            //System.out.println("Server sending message [" + message.getText() + "] to client");
             //send message
             out.writeObject(message);
         }
@@ -141,7 +141,7 @@ public class TCPServer
                     Message m = (Message)in.readObject();
                     //interpret message
                     
-                    System.out.println("Message" + m.getText() + "received from  client");
+                    System.out.println("Message [" + m.getText() + "] received from  client");
                     
                     if(m!=null)
                     {

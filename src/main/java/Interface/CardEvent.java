@@ -17,24 +17,33 @@ public class CardEvent implements Serializable
 {
     private Card originCard = null;
     private Card targetCard = null;
-    private Card blockingCard = null;
-    private PlayerBox playerBoxPanel;
-    private boolean isResolved = false;
-    private int laneNumber = 0;
+    private PlayerBox targetPlayer;
     
     public CardEvent(Card originCard)
     {
         this.originCard = originCard;      
     }
 
-    public void setLaneNumber(int num)
+    public CardEvent()
     {
-        laneNumber=num;
+
     }
 
-    public int getLaneNumber()
+    public CardEvent(Card originCard, Card targetCard)
     {
-        return laneNumber;
+        this.originCard = originCard;
+        this.targetCard = targetCard;
+    }
+
+    public CardEvent(Card originCard, PlayerBox targetPlayer)
+    {
+        this.originCard = originCard;
+        this.targetPlayer = targetPlayer;
+    }
+
+    public void addOriginCard(Card card)
+    {
+        originCard = card;
     }
 
     public void addTargetCard(Card card)
@@ -54,20 +63,12 @@ public class CardEvent implements Serializable
     
     public PlayerBox getTargetPlayerBox()
     {
-        return playerBoxPanel;
+        return targetPlayer;
     }
     
     public void addTargetPlayerBox(PlayerBox box)
     {
-        playerBoxPanel = box;
+        targetPlayer = box;
     }
 
-    public void execute()
-    {
-        isResolved = true;
-    }
-    
-    
-    
-    
 }

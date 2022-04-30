@@ -38,8 +38,8 @@ public class PlayArea extends JPanel
     private ArrayList<Card> cardList;
     private Deque<CardEvent> cardEventStack = new ArrayDeque<CardEvent>();
     ArrayList<Card> discardPile = new ArrayList<Card>();
+    private CardEvent cardEventInProgress;
 
- 
     public PlayArea(int containerWidth, int containerHeight, GameWindow window, boolean isOpponent)
     {
         gameWindow = window;
@@ -100,8 +100,9 @@ public class PlayArea extends JPanel
 
             @Override
             public void mouseReleased(MouseEvent e) {
-                if(gameWindow.getIsPlayerTurn())
-                    gameWindow.cancelCardEvent();
+                if(!isOpponent) {
+                    //cancelCardEvent();
+                }
             }
 
             @Override
@@ -126,8 +127,9 @@ public class PlayArea extends JPanel
 
     public boolean addCard(Card card)
     {
-        if(card instanceof ActionCard && cardSubPanel.checkIfFull())
+        if(card instanceof ActionCard && cardSubPanel.checkIfFull()) {
             return false;
+        }
 
         gameWindow.playSound("playCard");
         //set card location
@@ -165,13 +167,9 @@ public class PlayArea extends JPanel
         card.addMouseListener(new CardMouseListener(card,this));
 
         cardsInPlay.put(card.getCardID(), card);
-        triggerETBEffect((ActionCard) card);
-
 
         if(card instanceof SpellCard)
         {
-            SpellCard scard = (SpellCard) card;
-
             //do activate on enter the battlefield
             Timer timer = new Timer();
             TimerTask tt = new TimerTask() {
@@ -179,19 +177,20 @@ public class PlayArea extends JPanel
                 public void run()
                 {
                     timer.cancel();
-                    selectCard(scard);
+                    //spell cards auto selected trigger the card event in their containing play area
+                    card.getPlayArea().createCardEvent(card);
+                    card.setIsSelected(true);
                     gameWindow.playSound("playSpell");
                 }
             };
-            timer.schedule(tt, 500);
+            timer.schedule(tt, Constants.SPELL_CAST_DELAY);
         }
+
         return true;
     }
     
     public void removeCard(Card card)
     {
-        playerSubPanel.remove(cardsInPlay.get(card.getCardID()));
-        cardSubPanel.removeCard(cardsInPlay.get(card.getCardID()));
         card.setIsActivated(false);
         addToDiscardPile(card);
         cardsInPlay.remove(card.getCardID());
@@ -204,11 +203,10 @@ public class PlayArea extends JPanel
         discardPile.add(card);
     }
         
-    public void selectCard(Card card)
+    public void selectCard(Card card, boolean selectedByOpponent)
     {
         gameWindow.playSound("selectCard");
-        System.out.println("card selected");
-        gameWindow.createCardEvent(card);   
+
     }
 
     public void clearCards()
@@ -303,7 +301,79 @@ public class PlayArea extends JPanel
             } 
         }
     }
-        
+
+    public void createCardEvent(JPanel component)
+    {;
+        if(cardEventInProgress==null && component instanceof SpellCard)
+        {
+            Card card = (Card) component;
+            card.setIsSelected(true);
+
+            //create the new card event
+            cardEventInProgress = new CardEvent();
+            cardEventInProgress.addOriginCard(card);
+
+            //CARDS THAT DONT NEED A TARGET GET ADDED TO STACK HERE --
+            //cast the card as a spell card for use
+            //SpellCard spellCard = (SpellCard) card;
+            /**
+            if(spellCard.getSpellEffect() == Constants.SpellEffect.Draw_cards) {
+                //if a draw card spell, set self as the target and execute immediately
+                gameWindow.getSpellStack().addCardEvent(new CardEvent(card, playerBox));
+                cardEventInProgress = null;
+            }
+             **/
+            System.out.println("card event created");
+        }
+        else if(cardEventInProgress!=null && cardEventInProgress.getOriginCard()!=null && (cardEventInProgress.getTargetCard()==null || cardEventInProgress.getTargetPlayerBox()==null))
+        {
+            System.out.println("2nd card added to card event");
+            if(component instanceof ActionCard)
+            {
+                ((Card)component).setIsSelected(true);
+                cardEventInProgress.addTargetCard((Card)component);
+                //show glass pane so the arrow can be drawn
+                //gameWindow.drawPointer(cardEventInProgress.getOriginCard(), cardEventInProgress.getTargetCard());
+                System.out.println("target action card added to card event");
+            }
+            else
+            if(component instanceof PlayerBox)
+            {
+                cardEventInProgress.addTargetPlayerBox((PlayerBox) component);
+                //show glass pane so the arrow can be drawn
+                //gameWindow.drawPointer(cardEventInProgress.getOriginCard(), cardEventInProgress.getTargetPlayerBox());
+                System.out.println("target play box added to card event");
+            }
+            playerSubPanel.remove(cardEventInProgress.getOriginCard());
+            playerSubPanel.revalidate();
+            playerSubPanel.repaint();
+            //this.removeCard(cardEventInProgress.getOriginCard());
+            gameWindow.getSpellStack().addCardEvent(new CardEvent(cardEventInProgress.getOriginCard(),(Card)component));
+            //cardEventInProgress.getOriginCard().removeFromPlayArea();
+            cardEventInProgress=null;
+        }
+    }
+
+    public CardEvent getCardEventInProgress()
+    {
+        return cardEventInProgress;
+    }
+
+    public void cancelCardEvent() {
+        if (cardEventInProgress != null && cardEventInProgress.getOriginCard()!=null) {
+            cardEventInProgress.getOriginCard().setIsSelected(false);
+            gameWindow.hideDrawLineGlassPane();
+            removeCard(cardEventInProgress.getOriginCard());
+            cardEventInProgress = null;
+
+            if (!isOpponent) {
+                Message message = new Message();
+                message.setText("CANCEL_CARD_EVENT");
+                gameWindow.sendMessage(message, null);
+            }
+        }
+    }
+
     public class CardMouseListener implements MouseListener
     {
         private Container container;
@@ -326,14 +396,16 @@ public class PlayArea extends JPanel
 
         public void mouseReleased(MouseEvent e) {
 
-            System.out.println(card.getWidth() +", " + card.getHeight());
-
+            //System.out.println(card.getWidth() +", " + card.getHeight());
             //only allow mouse events while:
             // its the main phase
-            if(e.getButton()==MouseEvent.BUTTON1 && gameWindow.getTurnPhase()==TurnPhase.MAIN_PHASE)
+            if(e.getButton()==MouseEvent.BUTTON1 && gameWindow.getTurnPhase()==TurnPhase.MAIN_PHASE && card instanceof ActionCard)
             {
-                //if mouse 1 clicked
-                //selectCard(card);
+                //cards selected by mouse always pertain to the local players card event
+                gameWindow.getPlayerPlayArea().createCardEvent(card);
+                Message message = new Message();
+                message.setText("OPPONENT_SELECTED_CARD");
+                gameWindow.sendMessage(message,gameWindow.getJsonHelper().convertCardToJSON(card));
             }
             else
             if(e.getButton()==MouseEvent.BUTTON3)
@@ -358,40 +430,38 @@ public class PlayArea extends JPanel
     {
         private Container container;
         private PlayerBox playerBox;
-        
+
         public PlayerBoxMouseListener(PlayerBox box, Container container)
         {
             this.playerBox = box;
             this.container = container;
         }
-        
-        
+
+
         @Override
-        public void mouseClicked(MouseEvent e) 
+        public void mouseClicked(MouseEvent e)
         {
 
         }
 
         @Override
-        public void mousePressed(MouseEvent e) 
+        public void mousePressed(MouseEvent e)
         {
         }
 
         @Override
-        public void mouseReleased(MouseEvent e) { 
-            //only allow mouse events while its the players
-            System.out.println(playerBox.getWidth() + ", " + playerBox.getHeight());
+        public void mouseReleased(MouseEvent e) {
+            //System.out.println(playerBox.getWidth() + ", " + playerBox.getHeight());
             if(e.getButton()==MouseEvent.BUTTON1)
             {
-                if(gameWindow.getIsPlayerTurn())
-                {
-                    gameWindow.createCardEvent(playerBox);           
-                }               
+                //A mouse click always means input was fron the local player
+                //therefore, direct event to local card event
+                createCardEvent(playerBox);
             }
             if(e.getButton()==MouseEvent.BUTTON3)
             {
-            }
 
+            }
         }
 
         @Override
@@ -402,38 +472,6 @@ public class PlayArea extends JPanel
         public void mouseExited(MouseEvent e) {
         }
         
-    }
-
-    public boolean checkForAvailableBlockers()
-    {
-        //returns true if any cards in play area are available to block
-        //else returns false
-        for(Map.Entry<Integer,Card> entry:cardsInPlay.entrySet())
-        {
-            if(entry.getValue() instanceof ActionCard)
-            {
-                ActionCard c = (ActionCard) entry.getValue();
-                if(!c.getIsActivated())
-                    return true;
-                else
-                    return false;             
-            }      
-        }
-        return false;        
-    } 
-    
-    public boolean checkForTauntCreature()
-    {
-        cardList = new ArrayList<Card>(cardsInPlay.values());
-        
-        for(Card c:cardList)
-        {
-            //for each creature card player has in play
-            //if a creature without taunt is present, mark it as not attackable
-            if(c instanceof ActionCard && ((ActionCard)c).getActionEffect()== ActionEffect.Mastercut)
-                return true;
-        }
-        return false;
     }
 
     public CardSubPanelWithLanes getCardPanel()
@@ -457,7 +495,7 @@ public class PlayArea extends JPanel
             this.setSize(cardSubPanelDimension);
             innerPanel.setLayout(gridLayout);
             innerPanel.setOpaque(false);
-            innerPanel.setBorder(new LineBorder(new Color(000000),10,false));
+            innerPanel.setBorder(new LineBorder(new Color(00000000),10,false));
             innerPanel.setBackground(Constants.shadowColor);
             this.add(innerPanel);
 
@@ -513,12 +551,10 @@ public class PlayArea extends JPanel
 
         private void removeCard(Card card)
         {
-            System.out.println("card sub panel - remove card ("+card.getName()+") cardID: "+card.getCardID());
             for(int x = 0; x< cardLanes.length; x++)
             {
                 if(cardLanes[x].getComponentCount()>0 && cardLanes[x].getComponent(0) instanceof Card && ((Card) cardLanes[x].getComponent(0)).getCardID()==card.getCardID())
                 {
-                    System.out.println("found card to remove");
                     cardLanes[x].removeAll();
                     cardsInPlayArray[x] = null;
                     LanePlaceHolderPanel panel = new LanePlaceHolderPanel(x+1);
@@ -579,6 +615,14 @@ public class PlayArea extends JPanel
 
         }
 
+    }
+
+    public Card getCard(int id)
+    {
+        if(getCardsInPlayArea().containsKey(id))
+            return getCardsInPlayArea().get(id);
+        else
+            return null;
     }
     
     

@@ -68,9 +68,7 @@ public class JSONHelper
         }
 
     }
-    
-    
-    
+
     public List<Card> readCardListJSON(JSONObject jsonObject)
     {
         JSONArray array = (JSONArray) jsonObject.get("playerCards");
@@ -187,10 +185,12 @@ public class JSONHelper
                 if(sc.getSpellEffect()==SpellEffect.Stun)
                     //set play cost as 1
                     sc.setPlayCost(1);
+                /**
                 if(sc.getSpellEffect()==SpellEffect.Draw_cards || sc.getSpellEffect()==SpellEffect.Stun)
                     sc.setImageID(999);
                 if(sc.getSpellEffect()==SpellEffect.Deal_damage)
                     sc.setImageID(666);
+                 **/
             }
             else
             if(x>=50 && x<=60)
@@ -247,7 +247,6 @@ public class JSONHelper
         cardJSON.put("cost",c.getPlayCost());
         cardJSON.put("type",c.getClass().toString());
         cardJSON.put("imageID", c.getImageID());
-        
         return cardJSON;
     }
     

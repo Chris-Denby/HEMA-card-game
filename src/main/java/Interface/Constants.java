@@ -18,12 +18,13 @@ public class Constants
     public static final int maxHandSize = 5;
     public static final int maxResourceAmount = 5;
     public static final int defaultPlayerHealth = 5;
-    public static final int turnTimeLimit = 10;
+    public static final int turnTimeLimit = 20;
     public static final int discardTimeLimit = 10;
     public static final int maxCaradsInPlayArea = 14;
     public static final int buffDistance = 2;
     public static final int buffModifier = 2;
     public static final int DECK_SIZE = 60;
+    public static final int SPELL_CAST_DELAY = 500;
     public static final double cardAspectRatio = 0.715;
     public static String imagePath = "C:\\Users\\chris\\AppData\\Local\\CardGame\\";
     public static final Color cardBaseColor = new Color(38,38,38,255);
@@ -34,6 +35,7 @@ public class Constants
     public static final Color mythicColor = new Color(255,128,0,255);
     public static final int numberOfLanes = 3;
     public static final int laneCombatDelay = 1000;
+    public static final int stackExecuteDelay = 1000;
 
     public static enum WeaponType
     {
@@ -52,21 +54,21 @@ public class Constants
         OPPONENT_HAND,
         OPPONENT_PLAY_AREA,
         OPPONENT_DECK,
-        OPPONENT_DISCARD_PILE
+        OPPONENT_DISCARD_PILE,
+        SPELL_STACK
     }
     
     public static enum TurnPhase
     {
         MAIN_PHASE,
         COMBAT_PHASE,
-        DECLARE_BLOCKERS,
         END_PHASE
     }
     
     public static enum SpellEffect
     {
-        Draw_cards,
-        Deal_damage,
+        //Draw_cards,
+        // Deal_damage,
         Stun;
     }
     

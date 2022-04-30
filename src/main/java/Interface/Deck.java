@@ -7,8 +7,8 @@ package Interface;
 
 import Interface.Cards.Card;
 import Interface.Cards.ActionCard;
-import java.awt.Dimension;
-import java.awt.Point;
+
+import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.JLayeredPane;
@@ -45,7 +45,7 @@ public class Deck extends JLayeredPane
         playArea = area;
         height = (int) Math.round(hand.height * 0.8);
         width = height*2;
-        //this.setBackground(Color.LIGHT_GRAY);
+        this.setBackground(Color.LIGHT_GRAY);
         this.setOpaque(true);
         this.setSize(new Dimension(width,height));
         

@@ -222,9 +222,9 @@ public class PlayerHand extends JLayeredPane
             card.removeFromPlayerHand();
 
             if(!isOpponent)
-                card.setCardLocation(CardLocation.PLAYER_HAND);
+                card.setCardLocation(CardLocation.PLAYER_PLAY_AREA);
             else
-                card.setCardLocation(CardLocation.OPPONENT_HAND);
+                card.setCardLocation(CardLocation.OPPONENT_PLAY_AREA);
 
             resourcePanel.useResources(card.getPlayCost());
 

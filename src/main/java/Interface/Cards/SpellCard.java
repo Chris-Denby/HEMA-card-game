@@ -54,6 +54,7 @@ public class SpellCard extends Card
         
         switch(effect)
         {
+            /**
             case Draw_cards:
                 setBodyText(text);
                 return;
@@ -61,6 +62,7 @@ public class SpellCard extends Card
             case Deal_damage:
                 setBodyText(text);
                 return;
+             **/
                 
             case Stun:
                 setBodyText(text+" a creature");
@@ -73,18 +75,13 @@ public class SpellCard extends Card
         return spellEffect;
     }
     
-    @Override
-    public void paintComponent(Graphics g) {
-        super.paintComponent(g);   
-    }
-    
-    public SpellCard getClone(Image img)
+    public SpellCard getClone()
     {
         //this method creates a deep copy of the card and returns it
         SpellCard clone = new SpellCard(getName(), getImageID());
         clone.setPlayCost(getPlayCost());
         clone.setSpellEffect(spellEffect);
-        clone.setImage(img);
+        clone.setImageID(this.getImageID());
         clone.setCardID(this.getCardID());
         //set picture box
         return clone;

@@ -19,16 +19,13 @@ import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.util.*;
 import javax.swing.*;
 
 import Interface.Constants.CardLocation;
 import Interface.Constants.ActionEffect;
-import Interface.Constants.SpellEffect;
 import Interface.Constants.TurnPhase;
-import Interface.Constants.ActionEffect;
+
 import java.awt.Component;
 import java.awt.Font;
 import java.awt.Image;
@@ -70,7 +67,7 @@ public class GameWindow extends JPanel
     private GameControlPanel gameControlPanel;
     private ResourcePanel playerResourcePanel;
     private ResourcePanel opponentsResourcePanel;
-    private CentrePanel centrePanel;
+    private CentrePanel playAreaCentrePanel;
     private JRootPane rootPane;
     private DrawLineGlassPane drawLineGlassPane;
     private CardZoomGlassPane cardZoomGlassPane;
@@ -88,11 +85,8 @@ public class GameWindow extends JPanel
     private Clip ambientSoundClip;
     private AnimationGlassPane animationGlassPane;
     public Map<Component,String> componentAnimateMap = new HashMap<Component,String>();
+    private SpellStack spellStack;
 
-    //private Deque<CardEvent> actionCardStack = new ArrayDeque<CardEvent>();
-    private ArrayList<CardEvent> actionCardStack = new ArrayList<CardEvent>();
-    private CardEvent cardEvent = null;
-    
     //constructor
     public GameWindow(JTabbedPane pane, StartGameWindow startGameWindow)
     {
@@ -129,20 +123,24 @@ public class GameWindow extends JPanel
         opponentsDeck.setEnabled(false);
         gameControlPanel = new GameControlPanel(this.getHeight(), this.getWidth(),this);
 
+
         //ADD COMPONENTS        
         this.add(opponentsHand, BorderLayout.PAGE_START);
-        
-        centrePanel = new CentrePanel();
-        centrePanel.setOpaque(false);
-        centrePanel.setLayout(new BoxLayout(centrePanel, BoxLayout.PAGE_AXIS));
-        centrePanel.add(opponentsResourcePanel);
-        centrePanel.add(opponentsPlayArea, BorderLayout.CENTER);
-        centrePanel.add(playerPlayArea);
-        centrePanel.add(playerResourcePanel);
+        JPanel centrePanel = new JPanel();
+        spellStack = new SpellStack(this,centrePanel);
+        centrePanel.setLayout(new BoxLayout(centrePanel,BoxLayout.X_AXIS));
+        this.playAreaCentrePanel = new CentrePanel();
+        this.playAreaCentrePanel.setOpaque(false);
+        this.playAreaCentrePanel.setLayout(new BoxLayout(this.playAreaCentrePanel, BoxLayout.PAGE_AXIS));
+        this.playAreaCentrePanel.add(opponentsResourcePanel);
+        this.playAreaCentrePanel.add(opponentsPlayArea);
+        this.playAreaCentrePanel.add(playerPlayArea);
+        this.playAreaCentrePanel.add(playerResourcePanel);
+        centrePanel.add(this.playAreaCentrePanel);
+        centrePanel.add(spellStack);
         
         JScrollPane scrollPane = new JScrollPane(playerHand);
 
-        
         this.add(gameControlPanel, BorderLayout.WEST);
         this.add(centrePanel, BorderLayout.CENTER);
         this.add(scrollPane, BorderLayout.PAGE_END);
@@ -155,9 +153,9 @@ public class GameWindow extends JPanel
         //MAKE THE JFRAME VISIBLE
         setVisible(true); 
         
-        playAmbientSound();
-        playMusic();
-        centrePanel.setImage(getImageFromCache(000));
+        //playAmbientSound();
+        //playMusic();
+        this.playAreaCentrePanel.setImage(getImageFromCache(000));
 
         Timer timer = new Timer();
 
@@ -165,7 +163,7 @@ public class GameWindow extends JPanel
             @Override
             public void run()
             {
-                beingGame();
+                beginGame();
             }
         };
         TimerTask dealTask = new TimerTask() {
@@ -189,7 +187,12 @@ public class GameWindow extends JPanel
         return jsonHelper;
     }
 
-    public void beingGame()
+    public SpellStack getSpellStack()
+    {
+        return spellStack;
+    }
+
+    public void beginGame()
     {
         while(true)
         {
@@ -215,433 +218,65 @@ public class GameWindow extends JPanel
             return true;
     }
 
-    public void createCardEvent(Card card)
-    {        
-        //@@ Parameter originCarnd - the player hand which fired the method
-        
-        //if card is clicked - create a new event for that card
-        //then if another card is clicked as a target - trigger the source cards event on that card
-        //if the cost of the selected card is greater than the available resources - exit the method       
+    int stackEventIndex = 0;
+    public void executeSpellStack()
+    {
+        combatTimer = new Timer();
+        TimerTask stackEventTimerTask = null;
+        stackEventIndex = spellStack.getCardsInStack().size()-1;
 
-        //select a card as event source only if it is not yet selected
-        //dont allow origin card to be selected from opponents hand
-        if(cardEvent == null && !card.getIsSelected() && !card.getIsActivated())
+        //if stack is not empty
+        if(spellStack.getCardsInStack().size()>0)
         {
-            //if origin card is in opponents play area, do nothing
-            if(this.isPlayerTurn & card.getCardLocation()==CardLocation.OPPONENT_PLAY_AREA)
-                return;
-
-            cardEvent = new CardEvent(card);
-            //activate cards in the play areas
-            card.setIsSelected(true);
-            
-            if(card instanceof SpellCard)
+            stackEventTimerTask = new TimerTask()
             {
-                SpellCard scard = (SpellCard) card;
-
-                if(scard.getSpellEffect()==SpellEffect.Draw_cards)
+                @Override
+                public void run()
                 {
-                    //if a draw card spell, set self as the target and execute immediately
-                    cardEvent.addTargetPlayerBox(playerPlayArea.getPlayerBoxPanel());
-                    executeCardEvent();
-                }
-                else
-                if(scard.getSpellEffect()==SpellEffect.Deal_damage)
-                {
-                    //let method continue to allow a second card, or player, to be targeted
-                }
-            }
-
-            //***************
-            //send message to connected server/client
-            if(isPlayerTurn)
-            {
-                Message message = new Message();
-                message.setText("OPPONENT_ACTIVATE_CARD");
-                sendMessage(message,jsonHelper.convertCardToJSON(card));
-            }
-        }
-        else
-        //if a card event exists and target card has not yet been set
-        if(cardEvent != null && cardEvent.getTargetCard()==null && cardEvent.getTargetPlayerBox()==null && turnPhase!=TurnPhase.DECLARE_BLOCKERS)
-        {
-            //set the target card location if its the opponents turn
-            //because location information is lost when sending over the stream
-            if(getPlayerLocalCard(card.getCardID())==null)
-                card.setCardLocation(CardLocation.OPPONENT_PLAY_AREA);
-            else
-                card.setCardLocation(CardLocation.PLAYER_PLAY_AREA);
-
-            //if target card is the same as the origin - abandon method
-            if(cardEvent.getOriginCard().getCardID()==card.getCardID())
-                return;
-
-            //if the target card is a spell - abandon method
-            if(card instanceof SpellCard)
-                return;
-
-            if(cardEvent.getOriginCard() instanceof ActionCard && card instanceof ActionCard)
-            {
-                //>> PREVENT IF TAUNT PREVENTS ATTACK
-                //if its the players turn
-                //and the creature being attacked doesnt have taunt
-                //and there is a taunt creature in play
-                //RETURN!!
-
-                if(this.isPlayerTurn
-                        && ((ActionCard) card).getActionEffect()!= ActionEffect.Mastercut
-                        && opponentsPlayArea.checkForTauntCreature()){
-                    return;
-                }
-            }
-
-            //add card event to the stack
-            //cardEventStack.addFirst((CardEvent)cardEvent);
-
-            //set selected card as the target card
-            cardEvent.addTargetCard(card);
-            cardEvent.getTargetCard().setIsSelected(true);
-
-            //show glass pane so the arrow can be drawn
-            drawPointer(cardEvent.getOriginCard(), cardEvent.getTargetCard());
-
-            executeCardEvent();
-
-            //***************
-            //send message to connected server/client
-            if(isPlayerTurn)
-            {
-                Message message = new Message();
-                message.setText("OPPONENT_ACTIVATE_CARD");
-                sendMessage(message,jsonHelper.convertCardToJSON(card));
-            }
-        }
-        //if turn phase is delcare blockers
-        //the card added is to be the blocker
-    }
-
-    public void createCardEvent(PlayerBox playerBox)
-    {
-        //if the event already created
-        //if a target card has not been set in the event
-        //if a target player has not been set in th event
-
-        if(cardEvent != null && cardEvent.getTargetCard()==null & cardEvent.getTargetPlayerBox()==null)
-        {
-            //exit method if targeting own player
-            if(this.isPlayerTurn && !playerBox.getIsOpponent())
-                return;
-
-            //exit method if a taunt creature is present
-            if(this.isPlayerTurn && opponentsPlayArea.checkForTauntCreature())
-                return;
-
-            //exit method if a stun spell is being played on a player
-            if(cardEvent.getOriginCard() instanceof SpellCard && ((SpellCard)cardEvent.getOriginCard()).getSpellEffect()==SpellEffect.Stun)
-                return;
-
-            playerBox.setIsSelected(true);
-            cardEvent.addTargetPlayerBox(playerBox);
-
-            //add card event to the stack
-            //cardEventStack.addFirst((CardEvent)cardEvent);
-
-            //show glass pane so the arrow can be drawn
-            drawPointer(cardEvent.getOriginCard(),cardEvent.getTargetPlayerBox());
-
-            //if its the opponent who recieved the card event targeting their player box
-            //and they have no available blockers
-            //skip blocking without their input
-
-
-            //if origin is a spell, execute
-            if(cardEvent.getOriginCard() instanceof SpellCard)
-            {
-                executeCardEvent();
-            }
-            //if the origin is a creature
-            else if(cardEvent.getOriginCard() instanceof ActionCard)
-            {
-                //and it isnt the players turn
-                //allow opponent to block
-                requestResolveCombat();
-                if(!isPlayerTurn)
-                    //and there is no creatures available to block
-                    if(!playerPlayArea.checkForAvailableBlockers())
-                        passOnBlocking();
-            }
-
-
-
-
-
-            //***************
-            //send message to connected server/client
-            if(isPlayerTurn)
-            {
-                Message message = new Message();
-
-                if(playerBox.getIsOpponent())
-                    message.setText("CARD_EVENT_ON_OPPONENT");
-                else
-                    message.setText("CARD_EVENT_ON_PLAYER");
-                sendMessage(message,null);
-            }
-        }
-    }
-
-    public void cancelCardEvent()
-    {   if(cardEvent!=null)
-        {
-            Card originCard = cardEvent.getOriginCard();
-            Card targetCard = cardEvent.getTargetCard();
-            PlayerBox targetPlayer = cardEvent.getTargetPlayerBox();
-
-            //if target card objects dont match whats in players hand due to sending over stream
-            //match by ID instead
-            if(targetCard!=null && getPlayerLocalCard(targetCard.getCardID())!=null)
-            {
-                targetCard = getPlayerLocalCard(targetCard.getCardID());
-            }
-
-            //unselect any selected cards or opponent
-            originCard.setIsSelected(false);
-            if(targetPlayer!=null)
-                targetPlayer.setIsSelected(false);
-            if(targetCard!=null)
-                targetCard.setIsSelected(false);
-
-
-
-            //if spell is pending a target, remove the spell from play
-            if(originCard instanceof SpellCard && targetCard==null)
-            {
-                System.out.println("removing myself from play area");
-                originCard.removeFromPlayArea();
-            }
-
-
-
-            cardEvent = null;
-
-            hideDrawLineGlassPane();
-
-
-            drawLineGlassPane=null;
-
-            if(isPlayerTurn)
-            {
-                Message message = new Message();
-                message.setText("CANCEL_CARD_EVENT");
-                sendMessage(message,null);
-            }
-        }
-    }
-
-    public Card getPlayerLocalCard(int id)
-    {
-        if(playerPlayArea.getCardsInPlayArea().containsKey(id))
-            return playerPlayArea.getCardsInPlayArea().get(id);
-        else
-            return null;
-    }
-
-    public Card getOpponentLocalCard(int id)
-    {
-        if(opponentsPlayArea.getCardsInPlayArea().containsKey(id))
-            return opponentsPlayArea.getCardsInPlayArea().get(id);
-        else
-            return null;
-    }
-
-    public void requestResolveCombat()
-    {
-        if(cardEvent.getOriginCard() instanceof ActionCard && cardEvent.getTargetCard() instanceof ActionCard)
-            executeCardEvent();
-        else
-        if(cardEvent.getOriginCard() instanceof ActionCard && cardEvent.getTargetPlayerBox()!=null)
-        {
-            if(!isPlayerTurn)
-            {
-                gameControlPanel.enableResolveButton(true);
-                gameControlPanel.setResolveButtonText("NO BLOCKERS");
-            }
-        }
-        //***************
-        //send message to connected server/client
-        if(isPlayerTurn)
-        {
-            Message message = new Message();
-            message.setText("REQUEST_RESOLVE_COMBAT");
-            sendMessage(message,null);
-        }
-    }
-
-    public void executeCardEvent(CardEvent event)
-    {
-        TimerTask combatTask = null;
-        Timer timer = new Timer();
-
-        Card originCard = event.getOriginCard();
-        Card targetCard = event.getTargetCard();
-        PlayerBox targetPlayer = event.getTargetPlayerBox();
-
-        //force the cards to be face up, if it is face down for some reason
-        //such as Stealth effect...
-        originCard.setFaceUp(true);
-        if(targetCard!=null)
-            targetCard.setFaceUp(true);
-
-        //this.gameControlPanel.increaseTime();
-
-        //if target card objects dont match whats in players hand due to sending over stream
-        //match by ID instead
-        if(targetCard!=null && getPlayerLocalCard(targetCard.getCardID())!=null)
-            targetCard = getPlayerLocalCard(targetCard.getCardID());
-
-        if(event.getOriginCard() instanceof SpellCard)
-        {
-            //do action
-            SpellCard spellCard = (SpellCard) event.getOriginCard();
-
-            if(spellCard.getSpellEffect()==SpellEffect.Draw_cards)
-            {
-                combatTask = new TimerTask()
-                {
-                    @Override
-                    public void run()
-                    {
-                        hideDrawLineGlassPane();
-
-
-                        componentAnimateMap.put(originCard,"slash");
-                        drawAnimations();
-
-                        playSound("drawCardSpell");
-                        if(isPlayerTurn)
-                            playerHand.drawCards(spellCard.getPlayCost());
-
-                        originCard.removeFromPlayArea();
-                        //release current card event
-                        cardEvent = null;
+                    if(stackEventIndex<0){
+                        combatTimer.cancel();
+                        combatTimer.purge();
+                        executeLaneCombat();
+                        return;
                     }
-                };
-            }
-            else
-            if(spellCard.getSpellEffect()==SpellEffect.Deal_damage)
-            {
-                combatTask = new TimerTask()
-                {
-                    @Override
-                    public void run()
-                    {
-                        playSound("fireball");
 
-                        componentAnimateMap.put(originCard,"slash");
-                        drawAnimations();
+                    CardEvent eventToExecute = spellStack.cardsInStack.get(stackEventIndex);
+                    SpellCard originCard = (SpellCard) eventToExecute.getOriginCard();
+                    ActionCard targetCard = (ActionCard) eventToExecute.getTargetCard();
+                    PlayerBox targetPlayer = eventToExecute.getTargetPlayerBox();
 
-                        if(cardEvent.getTargetCard() instanceof ActionCard)
-                        {
-                            ActionCard ccard;
-                            if(getPlayerLocalCard(cardEvent.getTargetCard().getCardID())!=null){
-                                ccard = (ActionCard) getPlayerLocalCard(cardEvent.getTargetCard().getCardID());
-                            }
-                            else{
-                                ccard = (ActionCard) cardEvent.getTargetCard();
-                            }
-                            ccard.takeDamage(cardEvent.getOriginCard().getPlayCost());
-                            componentAnimateMap.put(ccard,"explode");
-                            drawAnimations();
-                        }
-                        if(cardEvent.getTargetPlayerBox()!=null)
-                        {
-                            cardEvent.getTargetPlayerBox().takeDamage(cardEvent.getOriginCard().getPlayCost());
-                            componentAnimateMap.put(cardEvent.getTargetPlayerBox(),"explode");
-                            drawAnimations();
-                        }
+                    eventToExecute.getOriginCard().setIsSelected(true);
+                    //System.out.println("Card event ["+stackEventIndex+"]" + " spell played from "+"["+eventToExecute.getOriginCard().getCardLocation()+"]");
 
-
-                        event.getOriginCard().removeFromPlayArea();
-                        //release current card event
-                        cardEvent = null;
-                        //hideDrawLineGlassPane();
-                    }
-                };
-            }
-            else
-            if(spellCard.getSpellEffect()==SpellEffect.Stun)
-            {
-                combatTask = new TimerTask()
-                {
-                    @Override
-                    public void run()
+                    //execute card events here ------
+                    if(originCard.getSpellEffect()==Constants.SpellEffect.Stun)
                     {
                         playSound("stun");
-
-                        componentAnimateMap.put(originCard,"slash");
-                        drawAnimations();
-
-                        if(cardEvent.getTargetCard() instanceof ActionCard)
-                        {
-                            //set targets
-                            ActionCard ccard;
-                            if(getPlayerLocalCard(cardEvent.getTargetCard().getCardID())!=null){
-                                ccard = (ActionCard) getPlayerLocalCard(cardEvent.getTargetCard().getCardID());
-                            }
-                            else{
-                                ccard = (ActionCard) cardEvent.getTargetCard();
-                            }
-
-                            //execute effect
-                            ((Card)ccard).setIsActivated(true);
-
+                            //execute stun effect - activated cards cant be used in combat
+                            eventToExecute.getTargetCard().setIsActivated(true);
                             //draw animation
-                            //drawAnimation("stun",null,ccard);
-                        }
-
-                        //remove spent spell card from play area
-                        event.getOriginCard().removeFromPlayArea();
-                        //release current card event
-                        cardEvent = null;
-                        hideDrawLineGlassPane();
+                            //componentAnimateMap.put(targetCard,"stun");
+                            //drawAnimations();
                     }
-                };
-            }
+                    //execute more card events here -----
 
-            if(combatTask!=null)
-                timer.schedule(combatTask, 500);
+                    //remove spent spell card from the stack
+                    spellStack.removeCardEvent(eventToExecute);
+                    //increment the stack index
+                    stackEventIndex--;
+                }
+            };
+            combatTimer.schedule(stackEventTimerTask,Constants.stackExecuteDelay,Constants.stackExecuteDelay);
         }
-
-        //AFTER EVENT RESOLVED
-        //return card state to normal
-        event.execute();
-
-        if(originCard!=null)
-        {
-            originCard.setIsSelected(false);
-            originCard.setIsActivated(true);
-        }
-        if(targetCard!=null)
-        {
-            targetCard.setIsSelected(false);
-            targetCard.setIsActivated(true);
-        }
-        if(targetPlayer!=null)
-        {
-            targetPlayer.setIsSelected(false);
+        else{
+            executeLaneCombat();
         }
     }
-
-    public void addCardToActionCardStack(ActionCard card, int lane){
-        CardEvent event = new CardEvent(card);
-        event.setLaneNumber(lane);
-        actionCardStack.add(event);
-    }
-
 
     int combatIterator = 0;
     public void executeLaneCombat()
     {
+        System.out.println("execute lane combat entered");
         //reset the iterator back to 0 - otherwise timer is cancelled
         combatIterator = 0;
         //Schedules the specified task for repeated fixed-delay execution (period), beginning after the specified delay (delay)
@@ -650,12 +285,12 @@ public class GameWindow extends JPanel
             @Override
             public void run()
             {
-                System.out.println("timer entered");
                 //cancel timer after iterating through all lanes
                 int x = combatIterator;
                 if(combatIterator==Constants.numberOfLanes) {
                     combatTimer.cancel();
                     combatTimer.purge();
+                    passTurn();
                     return;
                 }
 
@@ -669,11 +304,11 @@ public class GameWindow extends JPanel
                 playerBoxArray[0] = opponentsPlayArea.getPlayerBoxPanel();
                 playerBoxArray[1] = playerPlayArea.getPlayerBoxPanel();
 
-                System.out.println("lane " +x + " --------");
+                //System.out.println("lane " +x + " --------");
 
                 for(int y=0;y<2;y++)
                 {
-                    System.out.println("    slot "+y);
+                    //System.out.println("    slot "+y);
                     //determine which index is opponent or player
                     PlayerBox opponentsPlayerBox = playerBoxArray[y];
                     ActionCard playerActionCard = playerActionCardArray[y];
@@ -687,25 +322,24 @@ public class GameWindow extends JPanel
                         playerActionCard.getActionEffect()==ActionEffect.Thrust
                             ))
                     {
-                        if(opponentActionCard!=null)
+                        playerActionCard.setIsActivated(true);
+                        if(opponentActionCard!=null && !opponentActionCard.getIsActivated())
                         {
-                            System.out.println(opponentActionCard.getPower());
-
                             if(playerActionCard.getActionEffect()==ActionEffect.Cut && opponentActionCard.getActionEffect()==ActionEffect.Parry_Cut){
                                 isBlocked = true;
-                                System.out.println("        Cut was blocked");
+                                //System.out.println("        Cut was blocked");
                                 //add blocked animation
                             }
                             else
                             if(playerActionCard.getActionEffect()==ActionEffect.Thrust && opponentActionCard.getActionEffect()==ActionEffect.Parry_Thrust){
                                 isBlocked = true;
-                                System.out.println("        Thrust was blocked");
+                                //System.out.println("        Thrust was blocked");
                                 //add blocked animation
                             }
                             else
                             if(opponentActionCard.getActionEffect()==ActionEffect.Mastercut){
                                 isBlocked = true;
-                                System.out.println("        Blocked by mastercut");
+                                //System.out.println("        Blocked by mastercut");
                                 //add blocked animation
                             }
                         }
@@ -715,14 +349,10 @@ public class GameWindow extends JPanel
                             //and the card is a cut of thrust
                             //execute the card
                             playSound("attackSwing");
-                            playerActionCard.setIsActivated(true);
                             opponentsPlayerBox.takeDamage(playerActionCard.getPower());
                             componentAnimateMap.put(opponentsPlayerBox,"slash");
-                            System.out.println("        card damage from " + playerActionCard.getPower());
+                            //System.out.println("        card damage from " + playerActionCard.getPower());
                         }
-                        else
-                            System.out.println("        Blocked!");
-
                     }
                 }
                 drawAnimations();
@@ -741,19 +371,6 @@ public class GameWindow extends JPanel
         }
     }
 
-    public void executeCardEvent()
-    {
-        //if no parameters given
-        //execute card event in memory
-        if(cardEvent!=null)
-        executeCardEvent(cardEvent);
-    }
-
-    public boolean getIsPlayerTurn()
-    {
-        return isPlayerTurn;
-    }
-
     public TurnPhase getTurnPhase()
     {
         return turnPhase;
@@ -762,12 +379,11 @@ public class GameWindow extends JPanel
     public void passTurn()
     {
         playSound("passTurn");
-        gameControlPanel.startTurnTimer();
         gameControlPanel.setNotificationLabel("");
 
         //cancel any half created events
-        if(cardEvent!=null)
-            cancelCardEvent();
+        playerPlayArea.cancelCardEvent();
+        opponentsPlayArea.cancelCardEvent();
 
         //progress to next turn phase
         if(getTurnPhase()==null) {
@@ -776,12 +392,12 @@ public class GameWindow extends JPanel
             playerResourcePanel.resetResources();
             opponentsResourcePanel.resetResources();
             playerHand.highlightPlayableCards();
+            gameControlPanel.startTurnTimer();
         }
         else if(getTurnPhase()==TurnPhase.MAIN_PHASE) {
             setTurnPhase(TurnPhase.COMBAT_PHASE);
             playerHand.unHighlightPlayableCards();
-            //executeActionCardStack();
-            executeLaneCombat();
+            executeSpellStack();
         }
         else if (getTurnPhase()==TurnPhase.COMBAT_PHASE) {
             setTurnPhase(TurnPhase.END_PHASE);
@@ -791,6 +407,7 @@ public class GameWindow extends JPanel
             opponentsHand.discardAllCards();
             playerHand.dealHand();
             opponentsHand.dealHand();
+            gameControlPanel.startTurnTimer();
         }
         else if (getTurnPhase()==TurnPhase.END_PHASE) {
             setTurnPhase(TurnPhase.MAIN_PHASE);
@@ -798,18 +415,11 @@ public class GameWindow extends JPanel
             playerResourcePanel.resetResources();
             opponentsResourcePanel.resetResources();
             playerHand.highlightPlayableCards();
+            gameControlPanel.startTurnTimer();
         }
 
+
         gameControlPanel.setTurnPhaseLabelText(turnPhase);
-    }
-
-    public void passOnBlocking()
-    {
-        executeCardEvent();
-
-        Message message = new Message();
-        message.setText("OPPONENT_PASS_ON_BLOCKING");
-        sendMessage(message,null);
     }
 
     public void setOpponentInteractable(boolean enabled)
@@ -873,15 +483,17 @@ public class GameWindow extends JPanel
             //convert from JSON to card
             messageCard = this.jsonHelper.convertJSONtoCard(message.getJsonCard());
 
-            if(this.getPlayerLocalCard(messageCard.getCardID())!=null){
-                messageCard = this.getPlayerLocalCard(messageCard.getCardID());
+            //REPLACE BELOW WITH CHECKING CARDS CARD LOCATION VARIABLE THEN USE GET CARD METHOD FROM PLAY AREA!!!!
+
+            if(playerPlayArea.getCard(messageCard.getCardID())!=null){
+                messageCard = playerPlayArea.getCard(messageCard.getCardID());
                 messageCard.setPlayArea(playerPlayArea);
                 messageCard.setPlayerHand(playerHand);
 
             }
             else
-            if(this.getOpponentLocalCard(messageCard.getCardID())!=null){
-                messageCard = this.getOpponentLocalCard(messageCard.getCardID());
+            if(opponentsPlayArea.getCard(messageCard.getCardID())!=null){
+                messageCard = opponentsPlayArea.getCard(messageCard.getCardID());
                 messageCard.setPlayArea(opponentsPlayArea);
                 messageCard.setPlayerHand(opponentsHand);
             }
@@ -906,9 +518,12 @@ public class GameWindow extends JPanel
             this.opponentsHand.playCard(messageCard.getCardID(),true);
         }
         else
-        if(message.getText().equals("OPPONENT_ACTIVATE_CARD"))
+        if(message.getText().equals("OPPONENT_SELECTED_CARD"))
         {
-            createCardEvent(messageCard);
+            //any incoming selections are directed to the opponents card event
+            //local selections are made by mouse only
+            System.out.println("createCardEvent triggered remotely");
+            opponentsPlayArea.createCardEvent(messageCard);
         }
         else
         if(message.getText().equals("OPPONENT_PASS_TURN"))
@@ -918,30 +533,11 @@ public class GameWindow extends JPanel
         else
         if(message.getText().equals("CANCEL_CARD_EVENT"))
         {
-            if(cardEvent!=null)
-                cancelCardEvent();
-        }
-        else
-        if(message.getText().equals("CARD_EVENT_ON_PLAYER"))
-        {
-            //"player" meaning the opponents (who sent the message) self
-            this.createCardEvent(opponentsPlayArea.getPlayerBoxPanel());
-        }
-        else
-        if(message.getText().equals("CARD_EVENT_ON_OPPONENT"))
-        {
-            //"opponent" meaning this player (who recieved the message) self
-            this.createCardEvent(playerPlayArea.getPlayerBoxPanel());
+            opponentsPlayArea.cancelCardEvent();
         }
         else
         if(message.getText().equals("PLAYER_DISCARD_CARD"))
         {
-            System.out.println("I am instructed to discard card - " + messageCard.getCardID());
-            //System.out.println("which is in hand? - "+ getOpponentLocalCard(messageCard.getCardID()));
-            System.out.println("cards in opponents hand:");
-            for(Card c:opponentsHand.getCardsInHand())
-                System.out.println(c.getCardID());
-
             //"player" meaning the active player who's turn it is
             //therefore on receipt, the player would be this applications opponent
             opponentsHand.discardCard(messageCard.getCardID());
@@ -950,23 +546,6 @@ public class GameWindow extends JPanel
         if(message.getText().equals("OPPONENT_LOSE_GAME"))
         {
             this.winGame();
-        }
-        else
-        if(message.getText().equals("REQUEST_RESOLVE_COMBAT"))
-        {
-            requestResolveCombat();
-        }
-        else
-        if(message.getText().equals("OPPONENT_DECLARED_BLOCKER"))
-        {
-            //send received blocking card to the create card event method
-            //this method asigns the card as a blocker in the card event
-            createCardEvent(messageCard);
-        }
-        else
-        if(message.getText().equals("OPPONENT_PASS_ON_BLOCKING"))
-        {
-            executeCardEvent();
         }
         else
         if(message.getText().equals("OPPONENT_RESIGNED"))
@@ -1065,6 +644,15 @@ public class GameWindow extends JPanel
             startGameWindow.stopNetworkGame(1);
         else if(netClient!=null)
             startGameWindow.stopNetworkGame(0);
+    }
+
+    public PlayArea getOpponentsPlayArea()
+    {
+        return opponentsPlayArea;
+    }
+
+    public PlayArea getPlayerPlayArea(){
+        return playerPlayArea;
     }
 
     public void playSound(String soundFileName)
@@ -1189,6 +777,7 @@ public class GameWindow extends JPanel
 
     public void drawPointer(Component origin, Component target)
     {
+        System.out.println("draw pointer method fired");
         rootPane = this.getRootPane();
 
         int horizontalSpacing = gameControlPanel.getWidth();
@@ -1383,8 +972,8 @@ public class GameWindow extends JPanel
         public AnimationGlassPane(Map<Point,String> animations)
         {
             animations.forEach((point,effect)->{
-                System.out.println("play " + effect);
-                System.out.println(point.toString());
+                //System.out.println("play " + effect);
+                //System.out.println(point.toString());
                 ImageIcon animation = new ImageIcon(effect+".gif");
                 JLabel label = new JLabel(animation);
                 label.setBounds((point.x),point.y,animation.getIconWidth(),animation.getIconHeight());
@@ -1424,17 +1013,17 @@ public class GameWindow extends JPanel
         public CardZoomGlassPane(Card card)
         { 
             //make size of glass pane the same as the game window
-            setSize(centrePanel.getWidth(), centrePanel.getHeight());
+            setSize(playAreaCentrePanel.getWidth(), playAreaCentrePanel.getHeight());
             setVisible(true);
             setBackground(overlayColor);
             card.setZoomed(true);
             //card.setImage(getImageFromCache(card.getImageID()));
             //resize clone of card to be zoomed            
             //card.applySize((int) Math.round(centrePanel.getHeight()*0.6));
-            card.applySize((int) Math.round(centrePanel.getHeight()*0.6));
+            card.applySize((int) Math.round(playAreaCentrePanel.getHeight()*0.6));
             //set card location on screen
             card.setBounds((gameControlPanel.getWidth() + (int) Math.round(card.getWidth()/5)), 
-                    (int) Math.round((centrePanel.getHeight()-card.getHeight())/2) + playerHand.getHeight(), 
+                    (int) Math.round((playAreaCentrePanel.getHeight()-card.getHeight())/2) + playerHand.getHeight(),
                     card.getWidth(), card.getHeight());
             
             //add card to glass pane
